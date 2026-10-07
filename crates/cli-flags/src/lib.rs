@@ -846,6 +846,12 @@ impl CommonOptions {
     pub fn config(&mut self, pooling_allocator_default: Option<bool>) -> Result<Config> {
         self.configure()?;
         let mut config = Config::new();
+        #[cfg(target_os = "motor")]
+        {
+            config
+                .target(self.target.as_deref().unwrap_or("pulley64"))?
+                .motor_runtime();
+        }
 
         match_feature! {
             ["cranelift" : self.codegen.compiler]

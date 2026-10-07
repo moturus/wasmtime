@@ -176,7 +176,20 @@ impl CompletionCommand {
 
 #[allow(unreachable_code, reason = "empty enum with all features disabled")]
 fn main() -> Result<()> {
-    return Wasmtime::parse().execute();
+    #[cfg(all(target_os = "motor", feature = "motor-template"))]
+    {
+        let information = std::env::args()
+            .nth(1)
+            .is_some_and(|a| matches!(a.as_str(), "--help" | "-h" | "--version" | "-V"));
+        if !information {
+            wasmtime_cli::motor::check_authority()?;
+        }
+        if wasmtime_cli::motor::populated()? {
+            wasmtime_cli::motor::check_authority()?;
+            return wasmtime_cli::motor::execute_embedded();
+        }
+    }
+    Wasmtime::parse().execute()
 }
 
 #[test]

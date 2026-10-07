@@ -14,7 +14,7 @@ use wasmtime_wasi::WasiCtxBuilder;
 use wasmtime::component::Component;
 
 /// Whether or not WASIp3 is enabled by default.
-pub const P3_DEFAULT: bool = cfg!(feature = "component-model-async");
+pub const P3_DEFAULT: bool = cfg!(feature = "component-model-async") && !cfg!(target_os = "motor");
 
 #[derive(Clone)]
 pub enum RunTarget {
@@ -197,6 +197,10 @@ impl RunCommon {
         path: &Path,
         preloaded_bytes: Option<&[u8]>,
     ) -> Result<RunTarget> {
+        #[cfg(all(target_os = "motor", feature = "motor-template"))]
+        if path == Path::new(crate::motor::EMBEDDED_PATH) {
+            return crate::motor::load(engine);
+        }
         let path = match path.to_str() {
             #[cfg(unix)]
             Some("-") => "/dev/stdin".as_ref(),

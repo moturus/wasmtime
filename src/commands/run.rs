@@ -346,6 +346,8 @@ impl RunCommand {
             None => {}
         }
 
+        #[cfg(all(target_os = "motor", feature = "motor-template"))]
+        crate::motor::configure(&mut config)?;
         Engine::new(&config)
     }
 
@@ -503,6 +505,9 @@ impl RunCommand {
                 if e.is::<wasmtime::Trap>() {
                     eprintln!("Error: {e:?}");
                     cfg_select! {
+                        target_os = "motor" => {
+                            std::process::abort();
+                        }
                         unix => {
                             std::process::exit(rustix::process::EXIT_SIGNALED_SIGABRT);
                         }
