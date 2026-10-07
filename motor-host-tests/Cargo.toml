@@ -1,0 +1,27 @@
+[package]
+name = "motor-wasi-tests"
+version = "0.1.0"
+edition = "2024"
+publish = false
+[workspace]
+[dependencies]
+wasmtime = { path = "../crates/wasmtime", default-features = false, features = ["std", "runtime", "pulley", "component-model-async", "component-model-bytes", "gc", "gc-drc"] }
+wasmtime-wasi = { path = "../crates/wasi", features = ["p1", "p2", "p3"] }
+[target.'cfg(target_os = "motor")'.dependencies]
+moto-rt = { path = "../../motor-os/src/sys/lib/moto-rt" }
+moto-sys = { path = "../../motor-os/src/sys/lib/moto-sys" }
+moto-io = { path = "../../motor-os/src/sys/lib/moto-io" }
+moto-async = { path = "../../motor-os/src/sys/lib/moto-async" }
+moto-ipc = { path = "../../motor-os/src/sys/lib/moto-ipc" }
+moto-sys-io = { path = "../../motor-os/src/sys/lib/moto-sys-io" }
+[patch.crates-io]
+target-lexicon = { path = "../../target-lexicon" }
+tokio = { path = "../../tokio/tokio" }
+mio = { path = "../../mio" }
+ring = { git = "https://github.com/moturus/ring", rev = "b1dad2579de791d0c31ad33300187e584ba6c268" }
+moto-rt = { path = "../../motor-os/src/sys/lib/moto-rt" }
+[profile.release]
+panic = "abort"
+lto = "fat"
+codegen-units = 1
+strip = true
