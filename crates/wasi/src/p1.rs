@@ -653,14 +653,15 @@ impl WasiP1Ctx {
                 drop(t);
                 let f = self.table.get(&fd)?.file()?;
 
-                let do_write = move |f: &std::fs::File, buf: &[u8]| match (append, write) {
-                    // Note that this is implementing Linux semantics of
-                    // `pwrite` where the offset is ignored if the file was
-                    // opened in append mode.
-                    (true, _) => sys::append_cursor_unspecified(f, &buf),
-                    (false, FdWrite::At(pos)) => sys::write_at_cursor_unspecified(f, &buf, pos),
-                    (false, FdWrite::AtCur) => sys::write_at_cursor_unspecified(f, &buf, pos),
-                };
+                let do_write =
+                    move |f: &crate::filesystem::PlatformFile, buf: &[u8]| match (append, write) {
+                        // Note that this is implementing Linux semantics of
+                        // `pwrite` where the offset is ignored if the file was
+                        // opened in append mode.
+                        (true, _) => sys::append_cursor_unspecified(f, &buf),
+                        (false, FdWrite::At(pos)) => sys::write_at_cursor_unspecified(f, &buf, pos),
+                        (false, FdWrite::AtCur) => sys::write_at_cursor_unspecified(f, &buf, pos),
+                    };
 
                 let nwritten = match f.as_blocking_file() {
                     // If we can block then skip the copy out of wasm memory and

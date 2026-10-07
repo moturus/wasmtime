@@ -26,8 +26,6 @@ tokio = { workspace = true,  features = ["time", "sync", "io-std", "io-util", "r
 bytes = { workspace = true }
 thiserror = { workspace = true }
 tracing = { workspace = true, features = ["std", "attributes"] }
-cap-primitives = { workspace = true }
-cap-fs-ext-avoid-using-this = { workspace = true }
 bitflags = { workspace = true }
 async-trait = { workspace = true }
 futures = { workspace = true }
@@ -73,3 +71,16 @@ p3 = [
 [[test]]
 name = "process_stdin"
 harness = false
+
+[target.'cfg(not(target_os = "motor"))'.dependencies]
+cap-primitives = { workspace = true }
+cap-fs-ext-avoid-using-this = { workspace = true }
+
+[target.'cfg(target_os = "motor")'.dependencies]
+moto-io = { path = "../../../motor-os/src/sys/lib/moto-io" }
+moto-async = { path = "../../../motor-os/src/sys/lib/moto-async" }
+moto-rt = { path = "../../../motor-os/src/sys/lib/moto-rt" }
+
+moto-ipc = { path = "../../../motor-os/src/sys/lib/moto-ipc" }
+moto-sys-io = { path = "../../../motor-os/src/sys/lib/moto-sys-io" }
+getrandom = { version = "=0.2.17", features = ["custom"] }

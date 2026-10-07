@@ -1,3 +1,5 @@
+#[cfg(target_os = "motor")]
+use crate::motor_sockets as rustix;
 use crate::runtime::with_ambient_tokio_runtime;
 use crate::sockets::{
     ErrorCode, MaybeReady, SocketAddrCheck, SocketAddrUse, SocketAddressFamily, WasiSocketsCtx,

@@ -1,3 +1,5 @@
+#[cfg(target_os = "motor")]
+use crate::motor_fs as cap_primitives;
 mod host;
 
 use crate::TrappableError;

@@ -1,4 +1,6 @@
 use crate::clocks::Datetime;
+#[cfg(target_os = "motor")]
+use crate::motor_fs as cap_primitives;
 use crate::runtime::{AbortOnDropJoinHandle, spawn_blocking};
 use cap_primitives::fs::{DirOptions, FollowSymlinks, Metadata, OpenOptions, SystemTimeSpec};
 use std::collections::hash_map;
@@ -16,6 +18,19 @@ pub(crate) use unix as sys;
 pub(crate) mod windows;
 #[cfg(windows)]
 pub(crate) use windows as sys;
+
+#[cfg(target_os = "motor")]
+pub(crate) use crate::motor_fs::fs::File as PlatformFile;
+#[cfg(not(target_os = "motor"))]
+pub(crate) use std::fs::File as PlatformFile;
+#[cfg(target_os = "motor")]
+pub(crate) mod motor;
+#[cfg(target_os = "motor")]
+pub(crate) use motor as sys;
+#[cfg(target_os = "motor")]
+fn from_raw_os_error(_: Option<i32>) -> Option<ErrorCode> {
+    None
+}
 
 /// A helper struct which implements [`HasData`] for the `wasi:filesystem` APIs.
 ///
@@ -195,8 +210,11 @@ bitflags::bitflags! {
 /// API; some are used in higher-level library layers, and others are provided
 /// merely for alignment with POSIX.
 #[cfg_attr(
-    windows,
-    expect(dead_code, reason = "on Windows, some of these are not used")
+    any(windows, target_os = "motor"),
+    expect(
+        dead_code,
+        reason = "some filesystem errors do not occur on this platform"
+    )
 )]
 pub(crate) enum ErrorCode {
     /// Permission denied, similar to `EACCES` in POSIX.
@@ -254,6 +272,10 @@ pub(crate) enum ErrorCode {
 /// The type of a filesystem object referenced by a descriptor.
 ///
 /// Note: This was called `filetype` in earlier versions of WASI.
+#[cfg_attr(
+    target_os = "motor",
+    expect(dead_code, reason = "Motor filesystems contain files and directories")
+)]
 pub(crate) enum DescriptorType {
     /// The type of the descriptor or file is unknown or is different from
     /// any of the other types specified.
@@ -467,6 +489,18 @@ impl<'a> From<&'a std::io::Error> for ErrorCode {
                     std::io::ErrorKind::PermissionDenied => ErrorCode::NotPermitted,
                     std::io::ErrorKind::AlreadyExists => ErrorCode::Exist,
                     std::io::ErrorKind::InvalidInput => ErrorCode::Invalid,
+                    std::io::ErrorKind::NotADirectory => ErrorCode::NotDirectory,
+                    std::io::ErrorKind::IsADirectory => ErrorCode::IsDirectory,
+                    std::io::ErrorKind::DirectoryNotEmpty => ErrorCode::NotEmpty,
+                    std::io::ErrorKind::Unsupported => ErrorCode::Unsupported,
+                    std::io::ErrorKind::OutOfMemory => ErrorCode::InsufficientMemory,
+                    std::io::ErrorKind::StorageFull => ErrorCode::InsufficientSpace,
+                    std::io::ErrorKind::FileTooLarge => ErrorCode::FileTooLarge,
+                    std::io::ErrorKind::BrokenPipe => ErrorCode::Pipe,
+                    std::io::ErrorKind::Interrupted => ErrorCode::Interrupted,
+                    std::io::ErrorKind::InvalidFilename => ErrorCode::NameTooLong,
+                    std::io::ErrorKind::InvalidData => ErrorCode::IllegalByteSequence,
+                    std::io::ErrorKind::NotSeekable => ErrorCode::InvalidSeek,
                     _ => ErrorCode::Io,
                 }
             }
@@ -675,7 +709,7 @@ pub struct File {
     /// Wrapped in an Arc because the same underlying file is used for
     /// implementing the stream types. A copy is also needed for
     /// `spawn_blocking`.
-    pub file: Arc<std::fs::File>,
+    pub file: Arc<crate::filesystem::PlatformFile>,
     /// Permissions to enforce on access to the file. These permissions are
     /// specified to the parent preopen by a user of the
     /// `crate::WasiCtxBuilder`, and are enforced prior to any enforced by the
@@ -692,7 +726,7 @@ pub struct File {
 
 impl File {
     pub fn new(
-        file: std::fs::File,
+        file: crate::filesystem::PlatformFile,
         perms: FsPerms,
         open_mode: OpenMode,
         allow_blocking_current_thread: bool,
@@ -721,7 +755,7 @@ impl File {
     /// - [Implement opt-in for enabling WASI to block the current thread](https://github.com/bytecodealliance/wasmtime/pull/8190)
     pub(crate) async fn run_blocking<F, R>(&self, body: F) -> R
     where
-        F: FnOnce(&std::fs::File) -> R + Send + 'static,
+        F: FnOnce(&crate::filesystem::PlatformFile) -> R + Send + 'static,
         R: Send + 'static,
     {
         match self.as_blocking_file() {
@@ -732,7 +766,7 @@ impl File {
 
     pub(crate) fn spawn_blocking<F, R>(&self, body: F) -> AbortOnDropJoinHandle<R>
     where
-        F: FnOnce(&std::fs::File) -> R + Send + 'static,
+        F: FnOnce(&crate::filesystem::PlatformFile) -> R + Send + 'static,
         R: Send + 'static,
     {
         let f = self.file.clone();
@@ -742,7 +776,7 @@ impl File {
     /// Returns `Some` when the current thread is allowed to block in filesystem
     /// operations, and otherwise returns `None` to indicate that
     /// `spawn_blocking` must be used.
-    pub(crate) fn as_blocking_file(&self) -> Option<&std::fs::File> {
+    pub(crate) fn as_blocking_file(&self) -> Option<&crate::filesystem::PlatformFile> {
         if self.allow_blocking_current_thread {
             Some(&self.file)
         } else {
@@ -750,9 +784,9 @@ impl File {
         }
     }
 
-    /// Returns reference to the underlying [`std::fs::File`]
+    /// Returns reference to the underlying [`crate::filesystem::PlatformFile`]
     #[cfg(feature = "p3")]
-    pub(crate) fn as_file(&self) -> &Arc<std::fs::File> {
+    pub(crate) fn as_file(&self) -> &Arc<crate::filesystem::PlatformFile> {
         &self.file
     }
 
@@ -785,7 +819,7 @@ pub struct Dir {
     /// struct are sandboxed to be within this directory via `cap-primitives`.
     ///
     /// Wrapped in an Arc because a copy is needed for `run_blocking`.
-    pub dir: Arc<std::fs::File>,
+    pub dir: Arc<crate::filesystem::PlatformFile>,
     /// Permissions to enforce on access to the filesystem under this
     /// directory are specified by a user of the `crate::WasiCtxBuilder`, and
     /// are enforced prior to any enforced by the underlying operating system.
@@ -804,7 +838,7 @@ pub struct Dir {
 
 impl Dir {
     pub fn new(
-        dir: std::fs::File,
+        dir: crate::filesystem::PlatformFile,
         perms: FsPerms,
         open_mode: OpenMode,
         allow_blocking_current_thread: bool,
@@ -833,7 +867,7 @@ impl Dir {
     /// - [Implement opt-in for enabling WASI to block the current thread](https://github.com/bytecodealliance/wasmtime/pull/8190)
     pub(crate) async fn run_blocking<F, R>(&self, body: F) -> R
     where
-        F: FnOnce(&std::fs::File) -> R + Send + 'static,
+        F: FnOnce(&crate::filesystem::PlatformFile) -> R + Send + 'static,
         R: Send + 'static,
     {
         if self.allow_blocking_current_thread {
@@ -846,7 +880,7 @@ impl Dir {
 
     /// Returns reference to the underlying directory handle.
     #[cfg(feature = "p3")]
-    pub(crate) fn as_dir(&self) -> &Arc<std::fs::File> {
+    pub(crate) fn as_dir(&self) -> &Arc<crate::filesystem::PlatformFile> {
         &self.dir
     }
 
@@ -980,6 +1014,7 @@ impl Dir {
         // the underlying functionality in `cap-primitives` would get exposed,
         // but that'll require an upstream PR.
         {
+            #[cfg(not(target_os = "motor"))]
             use cap_fs_ext_avoid_using_this::OpenOptionsFollowExt;
             if path_flags.contains(PathFlags::SYMLINK_FOLLOW) {
                 opts.follow(FollowSymlinks::Yes);
@@ -1017,8 +1052,8 @@ impl Dir {
         // This makes sure we don't have to give spawn_blocking any way to
         // manipulate the table.
         enum OpenResult {
-            Dir(std::fs::File),
-            File(std::fs::File),
+            Dir(crate::filesystem::PlatformFile),
+            File(crate::filesystem::PlatformFile),
             NotDir,
         }
 

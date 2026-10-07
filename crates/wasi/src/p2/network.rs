@@ -1,4 +1,6 @@
 use crate::TrappableError;
+#[cfg(target_os = "motor")]
+use crate::motor_sockets as rustix;
 use crate::p2::bindings::sockets::network::ErrorCode;
 use crate::p2::bindings::sockets::tcp::ShutdownType;
 

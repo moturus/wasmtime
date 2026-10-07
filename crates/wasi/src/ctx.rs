@@ -1,6 +1,8 @@
 use crate::cli::{StdinStream, StdoutStream, WasiCliCtx};
 use crate::clocks::{HostMonotonicClock, HostWallClock, WasiClocksCtx};
 use crate::filesystem::{Dir, WasiFilesystemCtx};
+#[cfg(target_os = "motor")]
+use crate::motor_fs as cap_primitives;
 use crate::random::WasiRandomCtx;
 use crate::sockets::{SocketAddrCheck, SocketAddrUse, WasiSocketsCtx};
 use crate::{FsPerms, OpenMode};

@@ -1,3 +1,5 @@
+#[cfg(target_os = "motor")]
+use crate::motor_sockets as rustix;
 use crate::runtime::with_ambient_tokio_runtime;
 use crate::sockets::{
     ErrorCode, SocketAddrCheck, SocketAddrUse, SocketAddressFamily, WasiSocketsCtx,
@@ -9,7 +11,13 @@ use rustix::fd::AsFd;
 use rustix::io::Errno;
 use std::net::SocketAddr;
 use std::sync::Arc;
+#[cfg(not(target_os = "motor"))]
 use tracing::debug;
+
+#[cfg(target_os = "motor")]
+use crate::motor_sockets::UdpSocket as PlatformUdpSocket;
+#[cfg(not(target_os = "motor"))]
+use tokio::net::UdpSocket as PlatformUdpSocket;
 
 /// Theoretical maximum byte size of a UDP datagram, the real limit is lower,
 /// but we do not account for e.g. the transport layer here for simplicity.
@@ -21,7 +29,7 @@ pub(crate) const MAX_DATAGRAM_SIZE: usize = u16::MAX as usize;
 /// The inner state is wrapped in an Arc because the same underlying socket is
 /// used for implementing the stream types.
 pub struct UdpSocket {
-    socket: Arc<tokio::net::UdpSocket>,
+    socket: Arc<PlatformUdpSocket>,
     family: SocketAddressFamily,
 
     /// The checks to perform before doing any noteworthy syscall.
@@ -300,7 +308,8 @@ impl UdpSocket {
 }
 
 /// Creates a non-blocking/cloexec UDP socket.
-fn socket(family: SocketAddressFamily) -> std::io::Result<tokio::net::UdpSocket> {
+#[cfg(not(target_os = "motor"))]
+fn socket(family: SocketAddressFamily) -> std::io::Result<PlatformUdpSocket> {
     // Let the standard library be responsible for handling `WSAStartup`.
     #[cfg(windows)]
     static INIT: std::sync::Once = std::sync::Once::new();
@@ -338,11 +347,12 @@ fn socket(family: SocketAddressFamily) -> std::io::Result<tokio::net::UdpSocket>
         rustix::net::sockopt::set_ipv6_v6only(&socket, true)?;
     }
 
-    Ok(tokio::net::UdpSocket::try_from(std::net::UdpSocket::from(
+    Ok(PlatformUdpSocket::try_from(std::net::UdpSocket::from(
         socket,
     ))?)
 }
 
+#[cfg(not(target_os = "motor"))]
 fn bind(sockfd: impl AsFd, addr: SocketAddr) -> Result<(), Errno> {
     rustix::net::bind(sockfd, &addr).map_err(|err| match err {
         // See: https://learn.microsoft.com/en-us/windows/win32/api/winsock2/nf-winsock2-bind#:~:text=WSAENOBUFS
@@ -360,6 +370,7 @@ fn bind(sockfd: impl AsFd, addr: SocketAddr) -> Result<(), Errno> {
     })
 }
 
+#[cfg(not(target_os = "motor"))]
 fn connect(sockfd: impl AsFd, addr: SocketAddr) -> Result<(), Errno> {
     match rustix::net::connect(sockfd.as_fd(), &addr) {
         // When connecting a UDP socket, the OS looks up the best route to the
@@ -391,6 +402,7 @@ fn connect(sockfd: impl AsFd, addr: SocketAddr) -> Result<(), Errno> {
     }
 }
 
+#[cfg(not(target_os = "motor"))]
 fn disconnect(sockfd: impl AsFd) -> Result<(), Errno> {
     match rustix::net::connect_unspec(sockfd) {
         // BSD platforms return an error even if the UDP socket was disconnected successfully.
@@ -408,4 +420,21 @@ fn disconnect(sockfd: impl AsFd) -> Result<(), Errno> {
         Err(Errno::INVAL | Errno::AFNOSUPPORT) => Ok(()),
         r => r,
     }
+}
+
+#[cfg(target_os = "motor")]
+fn socket(family: SocketAddressFamily) -> std::io::Result<PlatformUdpSocket> {
+    Ok(PlatformUdpSocket::new(family))
+}
+#[cfg(target_os = "motor")]
+fn bind(sockfd: impl AsFd, addr: SocketAddr) -> Result<(), Errno> {
+    rustix::net::bind(sockfd, &addr)
+}
+#[cfg(target_os = "motor")]
+fn connect(sockfd: impl AsFd, addr: SocketAddr) -> Result<(), Errno> {
+    rustix::net::connect(sockfd, &addr)
+}
+#[cfg(target_os = "motor")]
+fn disconnect(sockfd: impl AsFd) -> Result<(), Errno> {
+    rustix::net::connect_unspec(sockfd)
 }

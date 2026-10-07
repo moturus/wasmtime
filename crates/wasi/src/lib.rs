@@ -29,12 +29,20 @@
 /// without exposing hosts to guest-controlled resource exhaustion is the
 /// important part, though.
 const MAX_READ_SIZE_ALLOC: usize = 64 * 1024;
+#[cfg(target_os = "motor")]
+use crate::motor_fs as cap_primitives;
 
 pub mod cli;
 pub mod clocks;
 mod ctx;
 mod error;
 pub mod filesystem;
+#[cfg(target_os = "motor")]
+pub mod motor_fs;
+#[cfg(target_os = "motor")]
+mod motor_lookup;
+#[cfg(target_os = "motor")]
+mod motor_sockets;
 #[cfg(feature = "p1")]
 pub mod p0;
 #[cfg(feature = "p1")]
@@ -64,3 +72,13 @@ pub use cap_primitives::fs::SystemTimeSpec;
 pub use rand::Rng;
 #[doc(no_inline)]
 pub use wasmtime::component::{ResourceTable, ResourceTableError};
+
+// Supply the native entropy source to Ring and rand without a getrandom fork.
+#[cfg(target_os = "motor")]
+fn motor_getrandom(dest: &mut [u8]) -> Result<(), getrandom::Error> {
+    moto_rt::fill_random_bytes(dest);
+    Ok(())
+}
+
+#[cfg(target_os = "motor")]
+getrandom::register_custom_getrandom!(motor_getrandom);

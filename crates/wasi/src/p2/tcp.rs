@@ -1,4 +1,13 @@
+#[cfg(not(target_os = "motor"))]
 use crate::MAX_READ_SIZE_ALLOC;
+
+// Motor's native TCP rings only grow: a request to reduce the default 128 KiB
+// ring retains its actual capacity. Keep the bounded host write queue larger
+// so background writes and graceful shutdown still exercise backpressure.
+#[cfg(target_os = "motor")]
+const MAX_WRITE_SIZE_ALLOC: usize = 256 * 1024;
+#[cfg(not(target_os = "motor"))]
+const MAX_WRITE_SIZE_ALLOC: usize = MAX_READ_SIZE_ALLOC;
 use crate::p2::bindings::sockets::network::ErrorCode;
 use crate::p2::{
     DynInputStream, DynOutputStream, InputStream, OutputStream, Pollable, SocketResult, StreamError,
@@ -161,7 +170,7 @@ impl WriteState {
         match self.poll_ready(&mut noop_cx()) {
             Poll::Pending => Ok(0),
             Poll::Ready(Ok((_, permit))) => {
-                *permit = MAX_READ_SIZE_ALLOC;
+                *permit = MAX_WRITE_SIZE_ALLOC;
                 Ok(*permit)
             }
             Poll::Ready(Err(e)) => Err(e),
