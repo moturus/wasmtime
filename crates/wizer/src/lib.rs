@@ -24,7 +24,10 @@ mod rayoff;
 
 pub use crate::info::ModuleContext;
 pub use crate::snapshot::SnapshotVal;
+#[cfg(feature = "wasmtime")]
 use ::wasmtime::{Result, bail, error::Context as _};
+#[cfg(not(feature = "wasmtime"))]
+use anyhow::{Context as _, Result, bail};
 use std::collections::{HashMap, HashSet};
 pub use wasmparser::ValType;
 
