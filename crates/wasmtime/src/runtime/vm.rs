@@ -116,8 +116,12 @@ pub use crate::runtime::vm::mmap_vec::MmapVec;
 pub use crate::runtime::vm::provenance::*;
 pub use crate::runtime::vm::stack_switching::*;
 pub use crate::runtime::vm::store_box::*;
-#[cfg(feature = "std")]
+#[cfg(all(feature = "std", has_virtual_memory))]
 pub use crate::runtime::vm::sys::mmap::open_file_for_mmap;
+#[cfg(all(feature = "std", not(has_virtual_memory)))]
+pub fn open_file_for_mmap(path: &std::path::Path) -> std::io::Result<std::fs::File> {
+    std::fs::File::open(path)
+}
 #[cfg(has_host_compiler_backend)]
 pub use crate::runtime::vm::sys::unwind::UnwindRegistration;
 pub use crate::runtime::vm::table::{Table, TableElementType};
@@ -161,9 +165,9 @@ pub use send_sync_unsafe_cell::SendSyncUnsafeCell;
 
 cfg_select! {
     has_virtual_memory => {
+        pub use self::cow::{MemoryImage, MemoryImageSlot, ModuleMemoryImages};
         pub use crate::runtime::vm::byte_count::*;
         pub use crate::runtime::vm::mmap::{Mmap, MmapOffset};
-        pub use self::cow::{MemoryImage, MemoryImageSlot, ModuleMemoryImages};
     }
     _ => {
         pub use self::cow_disabled::{MemoryImage, MemoryImageSlot, ModuleMemoryImages};

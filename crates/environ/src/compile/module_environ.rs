@@ -1104,7 +1104,7 @@ impl ModuleTranslation<'_> {
         max_image_size_always_allowed: u64,
         types: &mut ModuleTypesBuilder,
     ) {
-        if tunables.memory_init_cow {
+        if tunables.memory_init_cow || tunables.memory_init_static {
             self.try_static_init(page_size, max_image_size_always_allowed);
         }
 

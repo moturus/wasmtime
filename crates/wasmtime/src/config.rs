@@ -191,7 +191,7 @@ pub struct Config {
     pub(crate) stack_creator: Option<Arc<dyn RuntimeFiberStackCreator>>,
     pub(crate) module_version: ModuleVersionStrategy,
     pub(crate) parallel_compilation: bool,
-    pub(crate) memory_guaranteed_dense_image_size: u64,
+    pub(crate) memory_guaranteed_dense_image_size: Option<u64>,
     pub(crate) force_memory_init_memfd: bool,
     pub(crate) wmemcheck: bool,
     #[cfg(feature = "coredump")]
@@ -304,7 +304,7 @@ impl Config {
             stack_creator: None,
             module_version: ModuleVersionStrategy::default(),
             parallel_compilation: !cfg!(miri),
-            memory_guaranteed_dense_image_size: 16 << 20,
+            memory_guaranteed_dense_image_size: None,
             force_memory_init_memfd: false,
             wmemcheck: false,
             #[cfg(feature = "coredump")]
@@ -406,6 +406,34 @@ impl Config {
             Some(target_lexicon::Triple::from_str(target).map_err(|e| crate::format_err!(e))?);
 
         Ok(self)
+    }
+
+    /// Selects Motor's allocator-backed runtime policy, including for Pulley
+    /// artifacts prepared on another operating system.
+    ///
+    /// Native Motor targets resolve the allocator/initializer defaults from
+    /// the final target triple. This explicit profile also selects the Motor
+    /// artifact version and applies those defaults to Pulley targets.
+    pub fn motor_runtime(&mut self) -> &mut Self {
+        self.module_version =
+            ModuleVersionStrategy::Custom(concat!(env!("CARGO_PKG_VERSION"), "-motor.1").into());
+        self.memory_init_static(true);
+        self.memory_init_cow(false);
+        self.memory_guaranteed_dense_image_size(0);
+        self.memory_reservation(0);
+        self.memory_reservation_for_growth(0);
+        self.memory_guard_size(0);
+        self.signals_based_traps(false);
+        self
+    }
+
+    /// Coalesces eligible active data segments independently of CoW support.
+    ///
+    /// The dense-image allowance still controls sparse-image eligibility.
+    /// This is enabled by the Motor runtime profile and disabled elsewhere.
+    pub fn memory_init_static(&mut self, enable: bool) -> &mut Self {
+        self.tunables.memory_init_static = Some(enable);
+        self
     }
 
     /// Enables the incremental compilation cache in Cranelift, using the provided `CacheStore`
@@ -2368,8 +2396,18 @@ impl Config {
     ///
     /// By default this value is 16 MiB.
     pub fn memory_guaranteed_dense_image_size(&mut self, size_in_bytes: u64) -> &mut Self {
-        self.memory_guaranteed_dense_image_size = size_in_bytes;
+        self.memory_guaranteed_dense_image_size = Some(size_in_bytes);
         self
+    }
+
+    pub(crate) fn resolved_dense_image_size(&self) -> u64 {
+        self.memory_guaranteed_dense_image_size.unwrap_or_else(|| {
+            if self.compiler_target().operating_system == target_lexicon::OperatingSystem::Motor {
+                0
+            } else {
+                16 << 20
+            }
+        })
     }
 
     /// Whether to enable function inlining during compilation or not.
@@ -4861,7 +4899,7 @@ impl Engine {
 
     /// Returns the configured [`Config::memory_guaranteed_dense_image_size`] value.
     pub fn get_memory_guaranteed_dense_image_size(&self) -> u64 {
-        self.config().memory_guaranteed_dense_image_size
+        self.config().resolved_dense_image_size()
     }
 
     /// Returns the configured [`Config::signals_based_traps`] value.

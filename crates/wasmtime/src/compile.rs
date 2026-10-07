@@ -252,7 +252,7 @@ fn prepare_translation(
     // virtual-memory-tricks such as mmap'ing from a file to get
     // copy-on-write.
     let align = compiler.page_size_align();
-    let max_always_allowed = engine.config().memory_guaranteed_dense_image_size;
+    let max_always_allowed = engine.config().resolved_dense_image_size();
     translation.finalize_memory_init(engine.tunables(), align, max_always_allowed, types);
 
     // Attempt to convert table initializer segments to FuncTable

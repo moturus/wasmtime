@@ -135,6 +135,10 @@ define_tunables! {
         /// Whether CoW images might be used to initialize linear memories.
         pub memory_init_cow: bool,
 
+        /// Coalesce active data segments even when CoW images are disabled.
+        #[serde(skip)]
+        pub memory_init_static: bool,
+
         /// Whether to enable inlining in Wasmtime's compilation orchestration
         /// or not.
         pub inlining: Inlining,
@@ -241,6 +245,14 @@ impl Tunables {
             ret.memory_guard_size = 0;
             ret.gc_heap_guard_size = 0;
         }
+        if target.operating_system == target_lexicon::OperatingSystem::Motor {
+            ret.memory_init_static = true;
+            ret.memory_init_cow = false;
+            ret.memory_reservation = 0;
+            ret.memory_reservation_for_growth = 0;
+            ret.memory_guard_size = 0;
+            ret.signals_based_traps = false;
+        }
         Ok(ret)
     }
 
@@ -271,6 +283,7 @@ impl Tunables {
             winch_callable: false,
             signals_based_traps: false,
             memory_init_cow: true,
+            memory_init_static: false,
             inlining: Inlining::No,
             inlining_small_callee_size: 50,
             inlining_sum_size_threshold: 2000,
