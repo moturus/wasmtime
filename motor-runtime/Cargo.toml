@@ -1,0 +1,48 @@
+[package]
+name = "motor-wasmtime-runtime"
+version = "48.0.1"
+edition = "2024"
+publish = false
+[workspace]
+[features]
+default = ["run", "serve", "motor-template"]
+run = []
+serve = []
+motor-template = []
+compile = ["wasmtime-cli/compile", "wasmtime/wat"]
+cache = []
+explore = []
+cranelift = []
+wast = []
+completion = []
+objdump = []
+hot-blocks = []
+wizer = []
+[[bin]]
+name = "wasmtime-rt"
+path = "../src/bin/wasmtime.rs"
+[dependencies]
+clap = { version = "4.5", features = ["derive"] }
+wasmtime = { path = "../crates/wasmtime", default-features = false, features = ["std", "runtime", "pulley", "component-model-async", "component-model-bytes", "gc", "gc-drc"] }
+wasmtime-cli = { path = "..", default-features = false, features = ["run", "serve", "pulley", "component-model-async", "gc", "gc-drc", "disable-logging", "motor-template"] }
+tokio = { version = "=1.51.1", features = ["rt", "time"] }
+[patch.crates-io]
+target-lexicon = { path = "../../target-lexicon" }
+tokio = { path = "../../tokio/tokio" }
+mio = { path = "../../mio" }
+ring = { git = "https://github.com/moturus/ring", rev = "b1dad2579de791d0c31ad33300187e584ba6c268" }
+moto-rt = { path = "../../motor-os/src/sys/lib/moto-rt" }
+[profile.release]
+panic = "abort"
+lto = "fat"
+codegen-units = 1
+strip = true
+
+[target.'cfg(target_os = "motor")'.dependencies]
+moto-sys = { path = "../../motor-os/src/sys/lib/moto-sys" }
+moto-rt = { path = "../../motor-os/src/sys/lib/moto-rt" }
+
+[[bin]]
+name = "compile"
+path = "src/bin/compile.rs"
+required-features = ["compile"]
