@@ -1,0 +1,24 @@
+[package]
+name = "motor-compiler-policy-tests"
+version = "0.1.0"
+edition = "2024"
+publish = false
+
+[workspace]
+
+[dependencies]
+wasmtime = { path = "../crates/wasmtime", default-features = false, features = ["std", "runtime", "cranelift", "pulley", "wat", "component-model"] }
+object = { version = "0.39.1", default-features = false, features = ["read", "elf", "std"] }
+
+[target.'cfg(target_os = "motor")'.dependencies]
+moto-sys = { path = "../../motor-os/src/sys/lib/moto-sys" }
+
+[patch.crates-io]
+target-lexicon = { path = "../../target-lexicon" }
+moto-rt = { path = "../../motor-os/src/sys/lib/moto-rt" }
+
+[profile.release]
+panic = "abort"
+lto = "fat"
+codegen-units = 1
+strip = true
