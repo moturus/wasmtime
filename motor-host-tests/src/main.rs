@@ -4,6 +4,7 @@ fn main() -> std::io::Result<()> {
         let caps = moto_sys::ProcessStaticPage::get().capabilities;
         assert_eq!(caps, moto_sys::caps::CAP_FS_WRITE);
         filesystem::check()?;
+        interleavings::check()?;
         println!("PASS Motor WASI filesystem adapter");
     }
     #[cfg(not(target_os = "motor"))]
@@ -13,6 +14,8 @@ fn main() -> std::io::Result<()> {
 }
 #[cfg(target_os = "motor")]
 mod filesystem;
+#[cfg(target_os = "motor")]
+mod interleavings;
 
 #[cfg(target_os = "motor")]
 thread_local! {
