@@ -44,7 +44,11 @@ self-shared mapping has a read-write alias. Qualify with `stack-check normal`
 and `stack-check overflow` on `motor-runtime/fixtures/stack-yield.wat`; the
 overflow must kill only that process. `motor-runtime/fixtures/lifecycle.wat`
 covers `run` stdio, exit status, traps and `-W timeout` (compile with
-`--epoch`). Guest integration uses delivered binaries,
+`--epoch`). Stores default to 64 instances, 16 tables and 32,768
+table elements; `-W max-instances`, `max-tables` and `max-table-elements`
+override them. The memory reservations above are a fixed host bound that
+`-W max-memory-size` and `max-memories` can only lower; the
+`motor-runtime/fixtures/limits-*.wat` modules exceed each default. Guest integration uses delivered binaries,
 not a harness in the Motor source tree targeting temporary sources.
 
 The Motor target selects serial memory-image coalescing, disables CoW and sets

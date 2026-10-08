@@ -151,17 +151,20 @@ impl std::fmt::Display for RunCommon {
 
 impl RunCommon {
     pub fn store_limits(&self) -> StoreLimits {
+        // Motor's small VMs get finite defaults that `-W` options override;
+        // memory size and count are bounded by the host memory reservations.
+        let motor = |default: usize| cfg!(target_os = "motor").then_some(default);
         let mut limits = StoreLimitsBuilder::new();
         if let Some(max) = self.common.wasm.max_memory_size {
             limits = limits.memory_size(max);
         }
-        if let Some(max) = self.common.wasm.max_table_elements {
+        if let Some(max) = self.common.wasm.max_table_elements.or(motor(32_768)) {
             limits = limits.table_elements(max);
         }
-        if let Some(max) = self.common.wasm.max_instances {
+        if let Some(max) = self.common.wasm.max_instances.or(motor(64)) {
             limits = limits.instances(max);
         }
-        if let Some(max) = self.common.wasm.max_tables {
+        if let Some(max) = self.common.wasm.max_tables.or(motor(16)) {
             limits = limits.tables(max);
         }
         if let Some(max) = self.common.wasm.max_memories {
