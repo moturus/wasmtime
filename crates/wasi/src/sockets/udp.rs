@@ -428,7 +428,12 @@ fn socket(family: SocketAddressFamily) -> std::io::Result<PlatformUdpSocket> {
 }
 #[cfg(target_os = "motor")]
 fn bind(sockfd: impl AsFd, addr: SocketAddr) -> Result<(), Errno> {
-    rustix::net::bind(sockfd, &addr)
+    // Motor reports a non-local address as InvalidArgument; our own validation
+    // has already rejected the other invalid addresses.
+    rustix::net::bind(sockfd, &addr).map_err(|e| match e {
+        Errno::INVAL => Errno::ADDRNOTAVAIL,
+        e => e,
+    })
 }
 #[cfg(target_os = "motor")]
 fn connect(sockfd: impl AsFd, addr: SocketAddr) -> Result<(), Errno> {

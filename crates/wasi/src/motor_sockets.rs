@@ -59,7 +59,8 @@ pub mod io {
             use stdio::ErrorKind::*;
             Some(match e.kind() {
                 PermissionDenied => Self::ACCESS,
-                AddrInUse => Self::ADDRINUSE,
+                // Native sockets report an address in use as AlreadyInUse.
+                AddrInUse | AlreadyExists => Self::ADDRINUSE,
                 AddrNotAvailable => Self::ADDRNOTAVAIL,
                 TimedOut => Self::TIMEDOUT,
                 ConnectionRefused => Self::CONNREFUSED,

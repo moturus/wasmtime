@@ -824,6 +824,10 @@ fn bind(socket: &tokio::net::TcpSocket, local_address: SocketAddr) -> Result<(),
             // been handled by our own validation.. This error mapping is here
             // just in case there is an edge case we didn't catch.
             Some(Errno::AFNOSUPPORT) => ErrorCode::InvalidArgument,
+            // Motor reports a non-local address as InvalidArgument; our own
+            // validation has already rejected the other invalid addresses.
+            #[cfg(target_os = "motor")]
+            Some(Errno::INVAL) => ErrorCode::AddressNotBindable,
             // See: https://learn.microsoft.com/en-us/windows/win32/api/winsock2/nf-winsock2-bind#:~:text=WSAENOBUFS
             // Windows returns WSAENOBUFS when the ephemeral ports have been exhausted.
             #[cfg(windows)]
