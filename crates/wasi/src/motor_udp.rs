@@ -68,7 +68,13 @@ impl UdpSocket {
             .ok_or(stdio::ErrorKind::NotConnected.into())
     }
     pub async fn writable(&self) -> stdio::Result<()> {
-        self.ensure_bound()?.writable().await
+        // An unbound socket is writable; binding here would make every new
+        // socket bound before the guest's own bind. Sending binds it lazily.
+        let socket = self.socket.lock().unwrap().clone();
+        match socket {
+            Some(socket) => socket.writable().await,
+            None => Ok(()),
+        }
     }
     pub async fn send(&self, b: &[u8]) -> stdio::Result<usize> {
         self.send_to(b, self.peer_addr()?).await
