@@ -686,9 +686,9 @@ impl Drop for TcpReceiveStream {
     }
 }
 
-#[cfg(not(target_os = "macos"))]
+#[cfg(not(any(target_os = "macos", target_os = "motor")))]
 pub use inherits_option::*;
-#[cfg(not(target_os = "macos"))]
+#[cfg(not(any(target_os = "macos", target_os = "motor")))]
 mod inherits_option {
     use crate::sockets::SocketAddressFamily;
     use tokio::net::TcpStream;
@@ -709,11 +709,15 @@ mod inherits_option {
     }
 }
 
-#[cfg(target_os = "macos")]
+// Motor connections keep their native buffer sizes instead of the listener's.
+#[cfg(any(target_os = "macos", target_os = "motor"))]
 pub use does_not_inherit_options::*;
-#[cfg(target_os = "macos")]
+#[cfg(any(target_os = "macos", target_os = "motor"))]
 mod does_not_inherit_options {
+    #[cfg(target_os = "motor")]
+    use crate::motor_sockets::net::sockopt;
     use crate::sockets::SocketAddressFamily;
+    #[cfg(target_os = "macos")]
     use rustix::net::sockopt;
     use std::sync::Arc;
     use std::sync::atomic::{AtomicU8, AtomicU64, AtomicUsize, Ordering::Relaxed};
