@@ -1,0 +1,17 @@
+;; `wasmtime-rt run` stdio, exit status, trap and interruption.
+(module
+  (import "wasi_snapshot_preview1" "fd_write" (func $write (param i32 i32 i32 i32) (result i32)))
+  (import "wasi_snapshot_preview1" "proc_exit" (func $exit (param i32)))
+  (memory (export "memory") 1)
+  (data (i32.const 64) "out\n")
+  (data (i32.const 72) "err\n")
+  (func $print (param $fd i32) (param $text i32)
+    (i32.store (i32.const 0) (local.get $text))
+    (i32.store (i32.const 4) (i32.const 4))
+    (drop (call $write (local.get $fd) (i32.const 0) (i32.const 1) (i32.const 16))))
+  (func (export "_start")
+    (call $print (i32.const 1) (i32.const 64))
+    (call $print (i32.const 2) (i32.const 72)))
+  (func (export "exit-seven") (call $exit (i32.const 7)))
+  (func (export "trap") unreachable)
+  (func (export "loop") (loop $again (br $again))))

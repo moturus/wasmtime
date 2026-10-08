@@ -59,6 +59,11 @@ fn main() -> wasmtime::Result<()> {
         pool.new_stack((2 << 20) + 1, true).is_err(),
         "unbounded stack size"
     );
+    // The read-write alias of each mapping is charged as well.
+    let before = charge();
+    let largest = pool.new_stack(2 << 20, true)?;
+    println!("stack charge bytes={} size=2097152", charge() - before);
+    drop(largest);
     let stack = pool.new_stack(64 << 10, true)?;
     let address = stack.range().start;
     unsafe {
