@@ -409,3 +409,49 @@ where
         }
     }
 }
+
+/// Built to qualify Motor OS native networking (the `motor` feature): keepalive
+/// stays on with fixed 20 s probes and 15 retries
+/// (`src/sys/sys-io/src/runtime/net/socket/tcp.rs`), TCP cannot bind a wildcard
+/// address to an ephemeral port or connect from a bound socket, a wildcard UDP
+/// bind selects one local address, UDP has no buffer options and a closed UDP
+/// receiver reports no error.
+pub const MOTOR: bool = cfg!(feature = "motor");
+
+/// The result of enabling or disabling keepalive.
+pub fn keep_alive_set_result(enabled: bool) -> Result<(), ErrorCode> {
+    if MOTOR && !enabled {
+        Err(ErrorCode::NotSupported)
+    } else {
+        Ok(())
+    }
+}
+
+/// Keepalive state read back after requesting `enabled`.
+pub fn keep_alive_enabled_after(enabled: bool) -> bool {
+    MOTOR || enabled
+}
+
+/// Keepalive idle time or interval read back after setting `nanos`.
+pub fn keep_alive_time(nanos: u64) -> u64 {
+    if MOTOR { 20_000_000_000 } else { nanos }
+}
+
+/// Keepalive probe count read back after setting `count`.
+pub fn keep_alive_count(count: u32) -> u32 {
+    if MOTOR { 15 } else { count }
+}
+
+/// UDP buffer options are unsupported on Motor and must work elsewhere.
+pub fn udp_buffer_ok<T>(result: Result<T, ErrorCode>) -> bool {
+    if MOTOR {
+        matches!(result, Err(ErrorCode::NotSupported))
+    } else {
+        result.is_ok()
+    }
+}
+
+/// Whether `ip` is the wildcard address of its family.
+pub fn is_unspecified(ip: IpAddress) -> bool {
+    ip == IpAddress::new_unspecified(ip.family())
+}

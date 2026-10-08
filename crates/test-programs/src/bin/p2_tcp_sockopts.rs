@@ -1,4 +1,7 @@
-use test_programs::sockets::supports_ipv6;
+use test_programs::sockets::{
+    keep_alive_count, keep_alive_enabled_after, keep_alive_set_result, keep_alive_time,
+    supports_ipv6,
+};
 use test_programs::wasi::sockets::network::{
     ErrorCode, IpAddress, IpAddressFamily, IpSocketAddress, Network,
 };
@@ -31,7 +34,10 @@ fn test_tcp_sockopt_input_ranges(family: IpAddressFamily) {
     assert!(matches!(sock.set_listen_backlog_size(u64::MAX), Ok(_))); // Unsupported sizes should be silently capped.
 
     assert!(matches!(sock.set_keep_alive_enabled(true), Ok(_)));
-    assert!(matches!(sock.set_keep_alive_enabled(false), Ok(_)));
+    assert_eq!(
+        sock.set_keep_alive_enabled(false),
+        keep_alive_set_result(false)
+    );
 
     assert!(matches!(
         sock.set_keep_alive_idle_time(0),
@@ -39,7 +45,7 @@ fn test_tcp_sockopt_input_ranges(family: IpAddressFamily) {
     ));
     assert!(matches!(sock.set_keep_alive_idle_time(1), Ok(_))); // Unsupported sizes should be silently clamped.
     let idle_time = sock.keep_alive_idle_time().unwrap(); // Check that the special 0/reset behavior was not triggered by the previous line.
-    assert!(idle_time > 0 && idle_time <= 1 * SECOND);
+    assert!(idle_time > 0 && idle_time <= keep_alive_time(1 * SECOND));
     assert!(matches!(sock.set_keep_alive_idle_time(u64::MAX), Ok(_))); // Unsupported sizes should be silently clamped.
 
     assert!(matches!(
@@ -48,7 +54,7 @@ fn test_tcp_sockopt_input_ranges(family: IpAddressFamily) {
     ));
     assert!(matches!(sock.set_keep_alive_interval(1), Ok(_))); // Unsupported sizes should be silently clamped.
     let idle_time = sock.keep_alive_interval().unwrap(); // Check that the special 0/reset behavior was not triggered by the previous line.
-    assert!(idle_time > 0 && idle_time <= 1 * SECOND);
+    assert!(idle_time > 0 && idle_time <= keep_alive_time(1 * SECOND));
     assert!(matches!(sock.set_keep_alive_interval(u64::MAX), Ok(_))); // Unsupported sizes should be silently clamped.
 
     assert!(matches!(
@@ -84,17 +90,29 @@ fn test_tcp_sockopt_readback(family: IpAddressFamily) {
 
     sock.set_keep_alive_enabled(true).unwrap();
     assert_eq!(sock.keep_alive_enabled().unwrap(), true);
-    sock.set_keep_alive_enabled(false).unwrap();
-    assert_eq!(sock.keep_alive_enabled().unwrap(), false);
+    assert_eq!(
+        sock.set_keep_alive_enabled(false),
+        keep_alive_set_result(false)
+    );
+    assert_eq!(
+        sock.keep_alive_enabled().unwrap(),
+        keep_alive_enabled_after(false)
+    );
 
     sock.set_keep_alive_idle_time(42 * SECOND).unwrap();
-    assert_eq!(sock.keep_alive_idle_time().unwrap(), 42 * SECOND);
+    assert_eq!(
+        sock.keep_alive_idle_time().unwrap(),
+        keep_alive_time(42 * SECOND)
+    );
 
     sock.set_keep_alive_interval(42 * SECOND).unwrap();
-    assert_eq!(sock.keep_alive_interval().unwrap(), 42 * SECOND);
+    assert_eq!(
+        sock.keep_alive_interval().unwrap(),
+        keep_alive_time(42 * SECOND)
+    );
 
     sock.set_keep_alive_count(42).unwrap();
-    assert_eq!(sock.keep_alive_count().unwrap(), 42);
+    assert_eq!(sock.keep_alive_count().unwrap(), keep_alive_count(42));
 
     sock.set_hop_limit(42).unwrap();
     assert_eq!(sock.hop_limit().unwrap(), 42);
@@ -114,9 +132,10 @@ fn test_tcp_sockopt_inheritance(net: &Network, family: IpAddressFamily) {
 
     // Configure options on listener:
     {
-        listener
-            .set_keep_alive_enabled(!default_keep_alive)
-            .unwrap();
+        assert_eq!(
+            listener.set_keep_alive_enabled(!default_keep_alive),
+            keep_alive_set_result(!default_keep_alive)
+        );
         listener.set_keep_alive_idle_time(42 * SECOND).unwrap();
         listener.set_keep_alive_interval(42 * SECOND).unwrap();
         listener.set_keep_alive_count(42).unwrap();
@@ -136,11 +155,20 @@ fn test_tcp_sockopt_inheritance(net: &Network, family: IpAddressFamily) {
     {
         assert_eq!(
             accepted_client.keep_alive_enabled().unwrap(),
-            !default_keep_alive
+            keep_alive_enabled_after(!default_keep_alive)
         );
-        assert_eq!(accepted_client.keep_alive_idle_time().unwrap(), 42 * SECOND);
-        assert_eq!(accepted_client.keep_alive_interval().unwrap(), 42 * SECOND);
-        assert_eq!(accepted_client.keep_alive_count().unwrap(), 42);
+        assert_eq!(
+            accepted_client.keep_alive_idle_time().unwrap(),
+            keep_alive_time(42 * SECOND)
+        );
+        assert_eq!(
+            accepted_client.keep_alive_interval().unwrap(),
+            keep_alive_time(42 * SECOND)
+        );
+        assert_eq!(
+            accepted_client.keep_alive_count().unwrap(),
+            keep_alive_count(42)
+        );
         assert_eq!(accepted_client.hop_limit().unwrap(), 42);
         // Buffer sizes: the OS may adjust the actual value (per the WASI spec:
         // "the value read back from this setting may differ from the value that
@@ -156,7 +184,10 @@ fn test_tcp_sockopt_inheritance(net: &Network, family: IpAddressFamily) {
 
     // Update options on listener to something else:
     {
-        listener.set_keep_alive_enabled(default_keep_alive).unwrap();
+        assert_eq!(
+            listener.set_keep_alive_enabled(default_keep_alive),
+            keep_alive_set_result(default_keep_alive)
+        );
         listener.set_keep_alive_idle_time(43 * SECOND).unwrap();
         listener.set_keep_alive_interval(43 * SECOND).unwrap();
         listener.set_keep_alive_count(43).unwrap();
@@ -170,11 +201,20 @@ fn test_tcp_sockopt_inheritance(net: &Network, family: IpAddressFamily) {
     {
         assert_eq!(
             accepted_client.keep_alive_enabled().unwrap(),
-            !default_keep_alive
+            keep_alive_enabled_after(!default_keep_alive)
         );
-        assert_eq!(accepted_client.keep_alive_idle_time().unwrap(), 42 * SECOND);
-        assert_eq!(accepted_client.keep_alive_interval().unwrap(), 42 * SECOND);
-        assert_eq!(accepted_client.keep_alive_count().unwrap(), 42);
+        assert_eq!(
+            accepted_client.keep_alive_idle_time().unwrap(),
+            keep_alive_time(42 * SECOND)
+        );
+        assert_eq!(
+            accepted_client.keep_alive_interval().unwrap(),
+            keep_alive_time(42 * SECOND)
+        );
+        assert_eq!(
+            accepted_client.keep_alive_count().unwrap(),
+            keep_alive_count(42)
+        );
         assert_eq!(accepted_client.hop_limit().unwrap(), 42);
         assert_eq!(
             accepted_client.receive_buffer_size().unwrap(),
@@ -198,9 +238,10 @@ fn test_tcp_sockopt_after_listen(net: &Network, family: IpAddressFamily) {
 
     // Update options while the socket is already listening:
     {
-        listener
-            .set_keep_alive_enabled(!default_keep_alive)
-            .unwrap();
+        assert_eq!(
+            listener.set_keep_alive_enabled(!default_keep_alive),
+            keep_alive_set_result(!default_keep_alive)
+        );
         listener.set_keep_alive_idle_time(42 * SECOND).unwrap();
         listener.set_keep_alive_interval(42 * SECOND).unwrap();
         listener.set_keep_alive_count(42).unwrap();
@@ -217,11 +258,20 @@ fn test_tcp_sockopt_after_listen(net: &Network, family: IpAddressFamily) {
     {
         assert_eq!(
             accepted_client.keep_alive_enabled().unwrap(),
-            !default_keep_alive
+            keep_alive_enabled_after(!default_keep_alive)
         );
-        assert_eq!(accepted_client.keep_alive_idle_time().unwrap(), 42 * SECOND);
-        assert_eq!(accepted_client.keep_alive_interval().unwrap(), 42 * SECOND);
-        assert_eq!(accepted_client.keep_alive_count().unwrap(), 42);
+        assert_eq!(
+            accepted_client.keep_alive_idle_time().unwrap(),
+            keep_alive_time(42 * SECOND)
+        );
+        assert_eq!(
+            accepted_client.keep_alive_interval().unwrap(),
+            keep_alive_time(42 * SECOND)
+        );
+        assert_eq!(
+            accepted_client.keep_alive_count().unwrap(),
+            keep_alive_count(42)
+        );
         assert_eq!(accepted_client.hop_limit().unwrap(), 42);
         assert_eq!(accepted_client.receive_buffer_size().unwrap(), 0x10000);
         assert_eq!(accepted_client.send_buffer_size().unwrap(), 0x10000);

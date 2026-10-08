@@ -1,4 +1,4 @@
-use test_programs::sockets::supports_ipv6;
+use test_programs::sockets::{MOTOR, supports_ipv6};
 use test_programs::wasi::sockets::network::{
     ErrorCode, IpAddress, IpAddressFamily, IpSocketAddress, Network,
 };
@@ -116,8 +116,15 @@ fn test_tcp_connect_explicit_bind(net: &Network, family: IpAddressFamily) {
         .blocking_bind(net, IpSocketAddress::new(ip, 0))
         .unwrap();
 
-    // Connect should work:
-    client.blocking_connect(net, listener_address).unwrap();
+    // Connect should work (Motor cannot connect from a bound socket):
+    if MOTOR {
+        assert_eq!(
+            client.blocking_connect(net, listener_address).err(),
+            Some(ErrorCode::NotSupported)
+        );
+    } else {
+        client.blocking_connect(net, listener_address).unwrap();
+    }
 }
 
 fn main() {

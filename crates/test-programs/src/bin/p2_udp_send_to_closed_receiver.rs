@@ -1,3 +1,4 @@
+use test_programs::sockets::MOTOR;
 use test_programs::wasi::clocks::monotonic_clock;
 use test_programs::wasi::io::poll;
 use test_programs::wasi::sockets::network::{
@@ -23,7 +24,7 @@ fn test_send_to_closed_receiver(net: &Network, family: IpAddressFamily) {
     }])
     .unwrap();
 
-    let deadline = monotonic_clock::now() + 5_000_000_000;
+    let deadline = monotonic_clock::now() + if MOTOR { 1_000_000_000 } else { 5_000_000_000 };
     loop {
         match rx.receive(1) {
             Ok(datagrams) if datagrams.is_empty() => {}
@@ -38,6 +39,8 @@ fn test_send_to_closed_receiver(net: &Network, family: IpAddressFamily) {
         for ready in poll::poll(&[&received, &timeout]) {
             match ready {
                 0 => break,
+                // Motor reports no unreachable port: the datagram is dropped.
+                1 if MOTOR => return,
                 1 => panic!("receive timed out instead of returning an error"),
                 _ => unreachable!(),
             }
