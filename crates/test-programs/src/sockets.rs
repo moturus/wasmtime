@@ -442,6 +442,16 @@ pub fn keep_alive_count(count: u32) -> u32 {
     if MOTOR { 15 } else { count }
 }
 
+/// Buffer size an accepted socket reports for a listener's `requested` size:
+/// Motor rings only grow, so a larger native default is kept.
+pub fn inherited_buffer_ok(actual: u64, requested: u64) -> bool {
+    if MOTOR {
+        actual >= requested
+    } else {
+        actual == requested
+    }
+}
+
 /// UDP buffer options are unsupported on Motor and must work elsewhere.
 pub fn udp_buffer_ok<T>(result: Result<T, ErrorCode>) -> bool {
     if MOTOR {

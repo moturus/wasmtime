@@ -1,6 +1,6 @@
 use test_programs::sockets::{
-    keep_alive_count, keep_alive_enabled_after, keep_alive_set_result, keep_alive_time,
-    supports_ipv6,
+    inherited_buffer_ok, keep_alive_count, keep_alive_enabled_after, keep_alive_set_result,
+    keep_alive_time, supports_ipv6,
 };
 use test_programs::wasi::sockets::network::{
     ErrorCode, IpAddress, IpAddressFamily, IpSocketAddress, Network,
@@ -273,8 +273,14 @@ fn test_tcp_sockopt_after_listen(net: &Network, family: IpAddressFamily) {
             keep_alive_count(42)
         );
         assert_eq!(accepted_client.hop_limit().unwrap(), 42);
-        assert_eq!(accepted_client.receive_buffer_size().unwrap(), 0x10000);
-        assert_eq!(accepted_client.send_buffer_size().unwrap(), 0x10000);
+        assert!(inherited_buffer_ok(
+            accepted_client.receive_buffer_size().unwrap(),
+            0x10000
+        ));
+        assert!(inherited_buffer_ok(
+            accepted_client.send_buffer_size().unwrap(),
+            0x10000
+        ));
     }
 }
 
