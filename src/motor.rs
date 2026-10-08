@@ -27,6 +27,11 @@ fn header() -> &'static [u8; HEADER] {
     unsafe { &motor_wasm_start }
 }
 
+/// Whether this process holds Motor's network capability.
+pub(crate) fn has_network() -> bool {
+    moto_sys::ProcessStaticPage::get().capabilities & moto_sys::caps::CAP_NET != 0
+}
+
 /// Reject excess process authority before parsing options or opening inputs.
 pub fn check_authority() -> Result<()> {
     let caps = moto_sys::ProcessStaticPage::get().capabilities;

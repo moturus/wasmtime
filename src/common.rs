@@ -385,6 +385,15 @@ impl RunCommon {
         if let Some(enable) = self.common.wasi.udp {
             builder.allow_udp(enable);
         }
+        // Without CAP_NET Motor refuses every socket operation natively; deny
+        // network use up front so guests see access-denied, not invalid-state.
+        #[cfg(all(target_os = "motor", feature = "motor-template"))]
+        if !crate::motor::has_network() {
+            builder
+                .allow_tcp(false)
+                .allow_udp(false)
+                .allow_ip_name_lookup(false);
+        }
         if let Some(max_size) = self.common.wasi.max_random_size {
             builder.max_random_size(max_size);
         }
