@@ -338,6 +338,10 @@ async fn p2_tcp_connect() {
     run(P2_TCP_CONNECT_COMPONENT, |_| {}).await.unwrap()
 }
 #[test_log::test(tokio::test(flavor = "multi_thread"))]
+async fn p2_tcp_bind_listen_order() {
+    run(P2_TCP_BIND_LISTEN_ORDER_COMPONENT, |_| {}).await.unwrap()
+}
+#[test_log::test(tokio::test(flavor = "multi_thread"))]
 async fn p2_tcp_listen() {
     run(P2_TCP_LISTEN_COMPONENT, |_| {}).await.unwrap()
 }

@@ -314,6 +314,10 @@ fn p2_tcp_connect() {
     run(P2_TCP_CONNECT_COMPONENT, |_| {}).unwrap()
 }
 #[test_log::test]
+fn p2_tcp_bind_listen_order() {
+    run(P2_TCP_BIND_LISTEN_ORDER_COMPONENT, |_| {}).unwrap()
+}
+#[test_log::test]
 fn p2_tcp_listen() {
     run(P2_TCP_LISTEN_COMPONENT, |_| {}).unwrap()
 }
