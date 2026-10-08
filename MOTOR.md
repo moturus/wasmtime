@@ -32,7 +32,11 @@ image integration.
 Run `./motor-test.sh` for compiler-policy and ELF publication regressions.
 The Rust crates own their fixtures and have no runtime downloads. Native
 filesystem checks live in `motor-host-tests`; build for Motor and run
-`MOTOR_OS_CAPS=0x200 motor-wasi-tests`. Guest integration uses delivered binaries,
+`MOTOR_OS_CAPS=0x200 motor-wasi-tests`. Linear memories use owned lazy
+reservations (96 MiB each, 128 MiB and four memories per process); qualify them
+by precompiling `motor-runtime/fixtures/memory-*.wat` for `pulley64` with the
+`compile` tool and running `MOTOR_OS_CAPS=0 memory-check memory-grow.cwasm
+memory-too-large.cwasm` on Motor. Guest integration uses delivered binaries,
 not a harness in the Motor source tree targeting temporary sources.
 
 The Motor target selects serial memory-image coalescing, disables CoW and sets

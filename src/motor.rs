@@ -96,6 +96,7 @@ impl wasmtime::CustomCodeMemory for CodeRange {
 /// Install the native code range only for a populated OS-loaded template.
 pub(crate) fn configure(config: &mut Config) -> Result<()> {
     config.with_host_stack(Arc::new(crate::motor_stack::StackPool::default()));
+    config.with_host_memory(Arc::new(crate::motor_memory::Reservations::default()));
     if populated()? {
         let (start, end) = bounds()?;
         config.target("x86_64-unknown-motor")?.motor_runtime();

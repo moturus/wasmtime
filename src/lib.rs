@@ -36,6 +36,8 @@ pub extern "C" fn wasmtime_tls_set(slot: usize, pointer: *mut u8) {
 #[cfg(all(target_os = "motor", feature = "motor-template"))]
 pub mod motor;
 #[cfg(all(target_os = "motor", feature = "motor-template"))]
+pub mod motor_memory;
+#[cfg(all(target_os = "motor", feature = "motor-template"))]
 pub mod motor_stack;
 
 #[cfg(feature = "motor-template")]
