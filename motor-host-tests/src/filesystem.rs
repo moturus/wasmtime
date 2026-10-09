@@ -86,7 +86,7 @@ pub(super) fn check() -> io::Result<()> {
     assert_eq!(error.unwrap_err().kind(), io::ErrorKind::NotADirectory);
     assert_eq!(
         held.set_len(0).unwrap_err().kind(),
-        io::ErrorKind::PermissionDenied
+        io::ErrorKind::InvalidInput
     );
     fs::create_dir(&granted, Path::new("nested"), &DirOptions::new())?;
     for dir in ["nested", "nested/", "."] {

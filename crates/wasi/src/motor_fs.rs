@@ -98,6 +98,10 @@ pub mod fs {
             self.sync_data()
         }
         pub fn set_len(&self, n: u64) -> io::Result<()> {
+            // Like POSIX ftruncate, a file not open for writing is an invalid argument.
+            if self.kind != EntryKind::Directory && !self.write {
+                return Err(io::ErrorKind::InvalidInput.into());
+            }
             self.check_write()?;
             call(|c| Box::pin(async move { c.resize(self.id, n).await }))
         }
