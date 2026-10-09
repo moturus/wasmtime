@@ -226,6 +226,11 @@ pub mod fs {
             self
         }
     }
+    // `Path::components` drops a trailing `/` or `/.`, which names a directory.
+    fn names_dir(path: &Path) -> bool {
+        path.to_str()
+            .is_some_and(|p| p.ends_with('/') || p.ends_with("/."))
+    }
     // Validate the capability boundary before I/O. The walk checks every
     // directory, including components followed by `..`, using entry IDs.
     fn names(path: &Path) -> io::Result<Vec<String>> {
@@ -293,6 +298,9 @@ pub mod fs {
     }
     pub fn open(start: &File, path: &Path, opts: &OpenOptions) -> io::Result<File> {
         let names = names(path)?;
+        if opts.create && names_dir(path) {
+            return Err(io::ErrorKind::IsADirectory.into());
+        }
         let (id, kind) = call(|c| {
             Box::pin(async move {
                 if opts.create {
@@ -314,6 +322,9 @@ pub mod fs {
                 }
             })
         })?;
+        if kind != EntryKind::Directory && names_dir(path) {
+            return Err(io::ErrorKind::NotADirectory.into());
+        }
         let f = File {
             id,
             kind,
@@ -368,6 +379,9 @@ pub mod fs {
         let source = open(start, path, OpenOptions::new().read(true))?;
         if source.id == start.id {
             return Err(io::ErrorKind::PermissionDenied.into());
+        }
+        if source.kind != EntryKind::Directory && names_dir(dest) {
+            return Err(io::ErrorKind::NotADirectory.into());
         }
         let names = names(dest)?;
         call(|c| {

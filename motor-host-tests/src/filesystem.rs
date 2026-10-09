@@ -69,6 +69,21 @@ pub(super) fn check() -> io::Result<()> {
         let error = fs::open(&granted, Path::new(missing), OpenOptions::new().read(true));
         assert_eq!(error.err().unwrap().kind(), io::ErrorKind::NotFound);
     }
+    // A trailing `/` or `/.` names a directory.
+    for file in ["leaf/", "leaf//", "leaf/."] {
+        let error = fs::open(&granted, Path::new(file), OpenOptions::new().read(true));
+        assert_eq!(error.err().unwrap().kind(), io::ErrorKind::NotADirectory);
+    }
+    let error = fs::open(
+        &granted,
+        Path::new("fresh/"),
+        OpenOptions::new().write(true).create(true),
+    );
+    assert_eq!(error.err().unwrap().kind(), io::ErrorKind::IsADirectory);
+    let error = fs::remove_file(&granted, Path::new("leaf/"));
+    assert_eq!(error.unwrap_err().kind(), io::ErrorKind::NotADirectory);
+    let error = fs::rename(&granted, Path::new("leaf"), &granted, Path::new("other/"));
+    assert_eq!(error.unwrap_err().kind(), io::ErrorKind::NotADirectory);
     assert_eq!(
         held.set_len(0).unwrap_err().kind(),
         io::ErrorKind::PermissionDenied
