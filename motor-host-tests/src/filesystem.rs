@@ -89,6 +89,15 @@ pub(super) fn check() -> io::Result<()> {
         io::ErrorKind::PermissionDenied
     );
     fs::create_dir(&granted, Path::new("nested"), &DirOptions::new())?;
+    for dir in ["nested", "nested/", "."] {
+        let error = fs::open(
+            &granted,
+            Path::new(dir),
+            OpenOptions::new().read(true).write(true),
+        );
+        assert_eq!(error.err().unwrap().kind(), io::ErrorKind::IsADirectory);
+        fs::open(&granted, Path::new(dir), OpenOptions::new().read(true))?;
+    }
     let created = fs::open(
         &granted,
         Path::new("nested/new"),

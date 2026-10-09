@@ -325,6 +325,10 @@ pub mod fs {
         if kind != EntryKind::Directory && names_dir(path) {
             return Err(io::ErrorKind::NotADirectory.into());
         }
+        // As on POSIX, a directory cannot be opened for writing.
+        if kind == EntryKind::Directory && (opts.write || opts.truncate) {
+            return Err(io::ErrorKind::IsADirectory.into());
+        }
         let f = File {
             id,
             kind,
