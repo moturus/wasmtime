@@ -45,10 +45,17 @@ pub(super) async fn lookup(parent: EntryId, name: &str) -> moto_rt::Result<(Entr
     request.id = connection.sequence;
     connection.sender.send(request).await?;
     let response = connection.receiver.recv().await?;
-    if response.id != request.id || response.command != api_fs::CMD_STAT {
+    if response.id != request.id {
         return Err(moto_rt::Error::InternalError);
     }
-    let result = api_fs::stat_resp_decode(response);
+    // sys-io answers a failed request with its status alone, without a command.
+    let result = match response.status() {
+        Err(error) => Err(error),
+        Ok(()) if response.command != api_fs::CMD_STAT => {
+            return Err(moto_rt::Error::InternalError);
+        }
+        Ok(()) => api_fs::stat_resp_decode(response),
+    };
     IDLE.with(|slot| {
         // A reentrant lookup can have returned its own lease in the meantime.
         // Keep at most one idle channel rather than multiplexing responses.

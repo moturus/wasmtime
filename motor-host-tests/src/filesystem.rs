@@ -65,6 +65,10 @@ pub(super) fn check() -> io::Result<()> {
         .kind(),
         io::ErrorKind::NotADirectory
     );
+    for missing in ["missing", "missing/leaf"] {
+        let error = fs::open(&granted, Path::new(missing), OpenOptions::new().read(true));
+        assert_eq!(error.err().unwrap().kind(), io::ErrorKind::NotFound);
+    }
     assert_eq!(
         held.set_len(0).unwrap_err().kind(),
         io::ErrorKind::PermissionDenied
