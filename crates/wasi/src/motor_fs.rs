@@ -401,17 +401,28 @@ pub mod fs {
             return Err(io::ErrorKind::NotADirectory.into());
         }
         let names = names(dest)?;
-        call(|c| {
+        let (leaf, parents) = names.split_last().ok_or(io::ErrorKind::InvalidInput)?;
+        let (parent, target) = call(|c| {
             Box::pin(async move {
-                let (leaf, parents) = names.split_last().ok_or(moto_rt::Error::InvalidFilename)?;
                 let (parent, kind) = walk(&c, to, parents).await?;
                 if kind != EntryKind::Directory {
                     return Err(moto_rt::Error::NotADirectory);
                 }
-                c.move_entry(source.id, parent, leaf).await
+                let target = crate::motor_lookup::lookup(parent, leaf).await;
+                Ok((parent, target.ok().map(|(_, kind)| kind)))
             })
-        })
-        .map_err(|e| not_empty(e, source.kind))
+        })?;
+        // Motor replaces a destination of the other kind; POSIX refuses.
+        match (source.kind, target) {
+            (EntryKind::File, Some(EntryKind::Directory)) => {
+                Err(io::ErrorKind::IsADirectory.into())
+            }
+            (EntryKind::Directory, Some(EntryKind::File)) => {
+                Err(io::ErrorKind::NotADirectory.into())
+            }
+            _ => call(|c| Box::pin(async move { c.move_entry(source.id, parent, leaf).await }))
+                .map_err(|e| not_empty(e, source.kind)),
+        }
     }
     pub struct DirEntry {
         id: EntryId,

@@ -125,6 +125,20 @@ pub(super) fn check() -> io::Result<()> {
     fs::create_dir(&granted, Path::new("empty"), &DirOptions::new())?;
     let error = fs::rename(&granted, Path::new("empty"), &granted, Path::new("nested"));
     assert_eq!(error.unwrap_err().kind(), io::ErrorKind::DirectoryNotEmpty);
+    let error = fs::rename(
+        &granted,
+        Path::new("empty"),
+        &granted,
+        Path::new("nested/kept"),
+    );
+    assert_eq!(error.unwrap_err().kind(), io::ErrorKind::NotADirectory);
+    let error = fs::rename(
+        &granted,
+        Path::new("nested/kept"),
+        &granted,
+        Path::new("empty"),
+    );
+    assert_eq!(error.unwrap_err().kind(), io::ErrorKind::IsADirectory);
     fs::remove_dir(&granted, Path::new("empty"))?;
     fs::remove_file(&granted, Path::new("nested/kept"))?;
     fs::remove_dir(&granted, Path::new("nested"))?;
