@@ -115,6 +115,18 @@ pub(super) fn check() -> io::Result<()> {
     assert_eq!(fs::read_base_dir(&granted)?.count(), 3);
     created.sync_all()?;
     fs::remove_file(&granted, Path::new("renamed"))?;
+    fs::open(
+        &granted,
+        Path::new("nested/kept"),
+        OpenOptions::new().write(true).create(true),
+    )?;
+    let error = fs::remove_dir(&granted, Path::new("nested"));
+    assert_eq!(error.unwrap_err().kind(), io::ErrorKind::DirectoryNotEmpty);
+    fs::create_dir(&granted, Path::new("empty"), &DirOptions::new())?;
+    let error = fs::rename(&granted, Path::new("empty"), &granted, Path::new("nested"));
+    assert_eq!(error.unwrap_err().kind(), io::ErrorKind::DirectoryNotEmpty);
+    fs::remove_dir(&granted, Path::new("empty"))?;
+    fs::remove_file(&granted, Path::new("nested/kept"))?;
     fs::remove_dir(&granted, Path::new("nested"))?;
     println!(
         "PASS FS parent-ID confinement, rename/replacement, rights, create, resize, rename, enumerate, flush, remove"

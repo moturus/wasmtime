@@ -376,6 +376,15 @@ pub mod fs {
             .into());
         }
         call(|c| Box::pin(async move { c.delete_entry(f.id).await }))
+            .map_err(|e| not_empty(e, kind))
+    }
+    // moto_rt::Error has no "directory not empty"; sys-io sends FileTooLarge.
+    fn not_empty(e: io::Error, kind: EntryKind) -> io::Error {
+        if kind == EntryKind::Directory && e.kind() == io::ErrorKind::FileTooLarge {
+            io::ErrorKind::DirectoryNotEmpty.into()
+        } else {
+            e
+        }
     }
     pub fn remove_dir(start: &File, path: &Path) -> io::Result<()> {
         remove(start, path, EntryKind::Directory)
@@ -402,6 +411,7 @@ pub mod fs {
                 c.move_entry(source.id, parent, leaf).await
             })
         })
+        .map_err(|e| not_empty(e, source.kind))
     }
     pub struct DirEntry {
         id: EntryId,
