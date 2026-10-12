@@ -43,9 +43,9 @@ nothing else maps there. A 2 MiB stack is charged 4,202,496 bytes because the
 self-shared mapping has a read-write alias. Qualify with `stack-check normal`
 and `stack-check overflow` on `motor-runtime/fixtures/stack-yield.wat`; the
 overflow must kill only that process. `motor-runtime/fixtures/lifecycle.wat`
-covers `run` stdio, exit status, traps and `-W timeout` (compile with
-`--epoch`). Stores default to 64 instances, 16 tables and 32,768
-table elements; `-W max-instances`, `max-tables` and `max-table-elements`
+covers `run` stdio, exit status, traps, `-W timeout` (compile with
+`--epoch`), and Ctrl-C and parent exit through its `ready-loop` export.
+Stores default to 64 instances, 16 tables and 32,768 table elements; `-W max-instances`, `max-tables` and `max-table-elements`
 override them. The memory reservations above are a fixed host bound that
 `-W max-memory-size` and `max-memories` can only lower; the
 `motor-runtime/fixtures/limits-*.wat` modules exceed each default. Guest integration uses delivered binaries,

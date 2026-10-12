@@ -1,4 +1,6 @@
-;; `wasmtime-rt run` stdio, exit status, trap and interruption.
+;; `wasmtime-rt run` stdio, exit status, trap and interruption; `ready-loop`
+;; reports that the runtime is running before spinning, for Ctrl-C and
+;; parent-exit checks.
 (module
   (import "wasi_snapshot_preview1" "fd_write" (func $write (param i32 i32 i32 i32) (result i32)))
   (import "wasi_snapshot_preview1" "proc_exit" (func $exit (param i32)))
@@ -14,4 +16,7 @@
     (call $print (i32.const 2) (i32.const 72)))
   (func (export "exit-seven") (call $exit (i32.const 7)))
   (func (export "trap") unreachable)
-  (func (export "loop") (loop $again (br $again))))
+  (func (export "loop") (loop $again (br $again)))
+  (func (export "ready-loop")
+    (call $print (i32.const 1) (i32.const 64))
+    (loop $again (br $again))))
