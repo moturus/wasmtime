@@ -1,55 +1,31 @@
 //! Owned, nonmoving Motor reservations for Wasm linear memories.
 //!
 //! Each memory lazily reserves its whole bounded capacity once, so growth never
-//! copies and untouched pages read as zero. Limits bound each memory, the
-//! number of memories and their aggregate reservation in the process.
+//! copies and untouched pages read as zero. Reservations are sparse: only
+//! touched pages use RAM, and as on Linux there is no process-wide total.
 use moto_sys::{SysHandle, SysMem, sys_mem::PAGE_SIZE_SMALL};
-use std::sync::{Arc, Mutex};
 use wasmtime::{LinearMemory, MemoryCreator, MemoryType, Result, bail};
 
-/// Largest capacity of one linear memory.
-pub const MAX_MEMORY_BYTES: usize = 96 << 20;
-/// Largest total reservation of all live memories.
-pub const MAX_RESERVED_BYTES: usize = 128 << 20;
-/// Largest number of live memories.
-pub const MAX_MEMORIES: usize = 4;
-
-#[derive(Debug, Default)]
-struct Usage {
-    bytes: usize,
-    memories: usize,
-}
+/// Largest capacity of one linear memory: a 32-bit memory's whole range. A
+/// 64-bit memory fails to grow past it instead of moving.
+pub const MAX_MEMORY_BYTES: usize = 4 << 30;
 
 /// A [`MemoryCreator`] that backs each memory with one lazy reservation.
 #[derive(Debug)]
 pub struct Reservations {
     per_memory: usize,
-    aggregate: usize,
-    count: usize,
-    usage: Arc<Mutex<Usage>>,
 }
 
 impl Default for Reservations {
     fn default() -> Self {
-        Self::new(MAX_MEMORY_BYTES, MAX_RESERVED_BYTES, MAX_MEMORIES)
+        Self::new(MAX_MEMORY_BYTES)
     }
 }
 
 impl Reservations {
-    /// Limits each memory, the reservations' total and their number.
-    pub fn new(per_memory: usize, aggregate: usize, count: usize) -> Self {
-        Self {
-            per_memory,
-            aggregate,
-            count,
-            usage: Arc::default(),
-        }
-    }
-
-    /// Reserved bytes and memories currently held.
-    pub fn usage(&self) -> (usize, usize) {
-        let usage = self.usage.lock().unwrap();
-        (usage.bytes, usage.memories)
+    /// Limits the capacity of each memory.
+    pub fn new(per_memory: usize) -> Self {
+        Self { per_memory }
     }
 }
 
@@ -57,8 +33,6 @@ struct Reservation {
     address: u64,
     size: usize,
     capacity: usize,
-    mapped: usize,
-    usage: Arc<Mutex<Usage>>,
 }
 
 // The mapping is exclusive to this memory, stays at one address for its
@@ -86,9 +60,6 @@ impl Drop for Reservation {
     fn drop(&mut self) {
         SysMem::unmap(SysHandle::SELF, 0, u64::MAX, self.address)
             .expect("release Wasm memory reservation");
-        let mut usage = self.usage.lock().unwrap();
-        usage.bytes -= self.mapped;
-        usage.memories -= 1;
     }
 }
 
@@ -111,35 +82,20 @@ unsafe impl MemoryCreator for Reservations {
                 "initial memory of {minimum} bytes exceeds the {capacity}-byte limit"
             ));
         }
-        let mapped = capacity.max(1).next_multiple_of(PAGE_SIZE_SMALL as usize);
-        {
-            let mut usage = self.usage.lock().unwrap();
-            if usage.bytes + mapped > self.aggregate || usage.memories >= self.count {
-                return Err("Wasm memory reservation limits reached".into());
-            }
-            usage.bytes += mapped;
-            usage.memories += 1;
-        }
+        let pages = capacity.max(1).div_ceil(PAGE_SIZE_SMALL as usize) as u64;
         let address = SysMem::map(
             SysHandle::SELF,
             SysMem::F_READABLE | SysMem::F_WRITABLE | SysMem::F_LAZY,
             u64::MAX,
             u64::MAX,
             PAGE_SIZE_SMALL,
-            (mapped / PAGE_SIZE_SMALL as usize) as u64,
+            pages,
         )
-        .map_err(|e| {
-            let mut usage = self.usage.lock().unwrap();
-            usage.bytes -= mapped;
-            usage.memories -= 1;
-            format!("Wasm memory reservation failed: {e:?}")
-        })?;
+        .map_err(|e| format!("Wasm memory reservation failed: {e:?}"))?;
         Ok(Box::new(Reservation {
             address,
             size: minimum,
             capacity,
-            mapped,
-            usage: Arc::clone(&self.usage),
         }))
     }
 }

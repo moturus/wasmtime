@@ -1,2 +1,3 @@
-;; 100 MiB initial memory: above the per-memory limit, so instantiation fails.
-(module (memory (export "memory") 1600))
+;; 4 GiB and 64 KiB of initial 64-bit memory: above the per-memory limit, so
+;; instantiation fails.
+(module (memory (export "memory") i64 65537))

@@ -32,8 +32,11 @@ image integration.
 Run `./motor-test.sh` for compiler-policy and ELF publication regressions.
 The Rust crates own their fixtures and have no runtime downloads. Native
 filesystem checks live in `motor-host-tests`; build for Motor and run
-`MOTOR_OS_CAPS=0x200 motor-wasi-tests`. Linear memories use owned lazy
-reservations (96 MiB each, 128 MiB and four memories per process); qualify them
+`MOTOR_OS_CAPS=0x200 motor-wasi-tests`. Each linear memory owns one sparse lazy
+reservation of its declared maximum, or 4 GiB without one, so only touched pages
+use RAM; as on Linux there is no process-wide total or memory count. A 64-bit
+memory cannot grow past 4 GiB: `memory.grow` returns -1 instead of moving it,
+as upstream does with `-O memory-may-move=n`. Qualify the reservations
 by precompiling `motor-runtime/fixtures/memory-*.wat` for `pulley64` with the
 `compile` tool and running `MOTOR_OS_CAPS=0 memory-check memory-grow.cwasm
 memory-too-large.cwasm` on Motor. Guarded fiber stacks use eight slots of up to 2 MiB,
@@ -46,9 +49,10 @@ overflow must kill only that process. `motor-runtime/fixtures/lifecycle.wat`
 covers `run` stdio, exit status, traps, `-W timeout` (compile with
 `--epoch`), and Ctrl-C and parent exit through its `ready-loop` export.
 Stores default to 64 instances, 16 tables and 32,768 table elements; `-W max-instances`, `max-tables` and `max-table-elements`
-override them. The memory reservations above are a fixed host bound that
-`-W max-memory-size` and `max-memories` can only lower; the
-`motor-runtime/fixtures/limits-*.wat` modules exceed each default. Guest integration uses delivered binaries,
+override them. `-W max-memory-size` and `max-memories` work as upstream, below
+the fixed 4 GiB per-memory bound. In `motor-runtime/fixtures`, `limits-tables.wat`
+and `limits-elements.wat` exceed their defaults and `limits-memories.wat`
+exceeds `-W max-memories=4`. Guest integration uses delivered binaries,
 not a harness in the Motor source tree targeting temporary sources.
 
 The Motor target selects serial memory-image coalescing, disables CoW and sets
