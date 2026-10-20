@@ -32,6 +32,7 @@ checksum = "2a4385e2e34eb35d6b3efe798b9eb88096925d87726c0798709bf56d9ed84af3"
 [[package]]
 name = "async-fs"
 version = "0.1.0"
+source = "git+https://github.com/moturus/motor-os?branch=main#fc48f27dce02ed2f4e29dcd00d5a2df0b3775586"
 dependencies = [
  "async-trait",
  "bytemuck",
@@ -341,7 +342,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "39cab71617ae0d63f51a36d69f866391735b51691dbda63cf6f96d042b63efeb"
 dependencies = [
  "libc",
- "windows-sys 0.61.2",
+ "windows-sys 0.52.0",
 ]
 
 [[package]]
@@ -353,6 +354,7 @@ checksum = "52051878f80a721bb68ebfbc930e07b65ba72f2da88968ea5c06fd6ca3d3a127"
 [[package]]
 name = "fittings"
 version = "0.1.0"
+source = "git+https://github.com/moturus/motor-os?branch=main#fc48f27dce02ed2f4e29dcd00d5a2df0b3775586"
 
 [[package]]
 name = "foldhash"
@@ -795,6 +797,7 @@ dependencies = [
 [[package]]
 name = "mio"
 version = "1.2.0"
+source = "git+https://github.com/moturus/mio?branch=motor-1.2.0#e4884150d93331f7a48560ad8be640bab28d47b1"
 dependencies = [
  "libc",
  "moto-rt",
@@ -805,6 +808,7 @@ dependencies = [
 [[package]]
 name = "moto-async"
 version = "0.1.0"
+source = "git+https://github.com/moturus/motor-os?branch=main#fc48f27dce02ed2f4e29dcd00d5a2df0b3775586"
 dependencies = [
  "crossbeam",
  "log",
@@ -816,6 +820,7 @@ dependencies = [
 [[package]]
 name = "moto-io"
 version = "0.1.0"
+source = "git+https://github.com/moturus/motor-os?branch=main#fc48f27dce02ed2f4e29dcd00d5a2df0b3775586"
 dependencies = [
  "async-fs",
  "async-trait",
@@ -833,6 +838,7 @@ dependencies = [
 [[package]]
 name = "moto-io-internal"
 version = "0.1.0"
+source = "git+https://github.com/moturus/motor-os?branch=main#fc48f27dce02ed2f4e29dcd00d5a2df0b3775586"
 dependencies = [
  "moto-ipc",
  "moto-rt",
@@ -842,6 +848,7 @@ dependencies = [
 [[package]]
 name = "moto-ipc"
 version = "0.2.6"
+source = "git+https://github.com/moturus/motor-os?branch=main#fc48f27dce02ed2f4e29dcd00d5a2df0b3775586"
 dependencies = [
  "log",
  "moto-async",
@@ -852,6 +859,7 @@ dependencies = [
 [[package]]
 name = "moto-mpmc"
 version = "0.1.0"
+source = "git+https://github.com/moturus/motor-os?branch=main#fc48f27dce02ed2f4e29dcd00d5a2df0b3775586"
 dependencies = [
  "crossbeam-utils",
  "moto-rt",
@@ -860,11 +868,13 @@ dependencies = [
 
 [[package]]
 name = "moto-rt"
-version = "0.17.9"
+version = "0.17.8"
+source = "git+https://github.com/moturus/motor-os?branch=main#fc48f27dce02ed2f4e29dcd00d5a2df0b3775586"
 
 [[package]]
 name = "moto-sys"
 version = "0.3.1"
+source = "git+https://github.com/moturus/motor-os?branch=main#fc48f27dce02ed2f4e29dcd00d5a2df0b3775586"
 dependencies = [
  "moto-rt",
 ]
@@ -872,6 +882,7 @@ dependencies = [
 [[package]]
 name = "moto-sys-io"
 version = "0.2.4"
+source = "git+https://github.com/moturus/motor-os?branch=main#fc48f27dce02ed2f4e29dcd00d5a2df0b3775586"
 dependencies = [
  "async-fs",
  "log",
@@ -883,6 +894,7 @@ dependencies = [
 [[package]]
 name = "moto-tooling"
 version = "0.1.0"
+source = "git+https://github.com/moturus/motor-os?branch=main#fc48f27dce02ed2f4e29dcd00d5a2df0b3775586"
 dependencies = [
  "fittings",
  "moto-sys",
@@ -1033,7 +1045,7 @@ dependencies = [
  "errno",
  "libc",
  "linux-raw-sys",
- "windows-sys 0.61.2",
+ "windows-sys 0.52.0",
 ]
 
 [[package]]
@@ -1188,6 +1200,7 @@ dependencies = [
 [[package]]
 name = "target-lexicon"
 version = "0.13.5"
+source = "git+https://github.com/moturus/target-lexicon?branch=motor-0.13.5#4b61b4eae17fd05d9553733c70972571c2df49a6"
 
 [[package]]
 name = "thiserror"
@@ -1242,6 +1255,7 @@ dependencies = [
 [[package]]
 name = "tokio"
 version = "1.51.1"
+source = "git+https://github.com/moturus/tokio?branch=motor-1.51.1#62d8324a0594408af99376a90cec00d9e5604243"
 dependencies = [
  "bytes",
  "libc",
@@ -1977,8 +1991,3 @@ dependencies = [
  "quote",
  "syn 2.0.106",
 ]
-
-[[patch.unused]]
-name = "ring"
-version = "0.17.14"
-source = "git+https://github.com/moturus/ring?rev=b1dad2579de791d0c31ad33300187e584ba6c268#b1dad2579de791d0c31ad33300187e584ba6c268"

@@ -27,11 +27,11 @@ wasmtime = { path = "../crates/wasmtime", default-features = false, features = [
 wasmtime-cli = { path = "..", default-features = false, features = ["run", "serve", "pulley", "component-model-async", "gc", "gc-drc", "disable-logging", "motor-template"] }
 tokio = { version = "=1.51.1", features = ["rt", "time"] }
 [patch.crates-io]
-target-lexicon = { path = "../../target-lexicon" }
-tokio = { path = "../../tokio/tokio" }
-mio = { path = "../../mio" }
+target-lexicon = { git = "https://github.com/moturus/target-lexicon", branch = "motor-0.13.5" }
+tokio = { git = "https://github.com/moturus/tokio", branch = "motor-1.51.1" }
+mio = { git = "https://github.com/moturus/mio", branch = "motor-1.2.0" }
 ring = { git = "https://github.com/moturus/ring", rev = "b1dad2579de791d0c31ad33300187e584ba6c268" }
-moto-rt = { path = "../../motor-os/src/sys/lib/moto-rt" }
+moto-rt = { git = "https://github.com/moturus/motor-os", branch = "main" }
 [profile.release]
 panic = "abort"
 lto = "fat"
@@ -39,8 +39,8 @@ codegen-units = 1
 strip = true
 
 [target.'cfg(target_os = "motor")'.dependencies]
-moto-sys = { path = "../../motor-os/src/sys/lib/moto-sys" }
-moto-rt = { path = "../../motor-os/src/sys/lib/moto-rt" }
+moto-sys = { git = "https://github.com/moturus/motor-os", branch = "main" }
+moto-rt = { git = "https://github.com/moturus/motor-os", branch = "main" }
 
 [[bin]]
 name = "compile"

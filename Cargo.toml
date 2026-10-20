@@ -793,16 +793,16 @@ fpr = "fpr"
 extend-exclude = [ "docs/js/mermaid*.js", "crates/wasi-nn/**/*.txt", "*.isle" ]
 
 [patch.crates-io]
-target-lexicon = { path = "../target-lexicon" }
-
-mio = { path = "../mio" }
-tokio = { path = "../tokio/tokio" }
+target-lexicon = { git = "https://github.com/moturus/target-lexicon", branch = "motor-0.13.5" }
+mio = { git = "https://github.com/moturus/mio", branch = "motor-1.2.0" }
+tokio = { git = "https://github.com/moturus/tokio", branch = "motor-1.51.1" }
 ring = { git = "https://github.com/moturus/ring", rev = "b1dad2579de791d0c31ad33300187e584ba6c268" }
-moto-rt = { path = "../motor-os/src/sys/lib/moto-rt" }
+# Tokio and Mio ask crates.io for moto-rt; Motor OS crates come from one revision.
+moto-rt = { git = "https://github.com/moturus/motor-os", branch = "main" }
 
 [target.'cfg(target_os = "motor")'.dependencies]
-moto-sys = { path = "../motor-os/src/sys/lib/moto-sys" }
-moto-rt = { path = "../motor-os/src/sys/lib/moto-rt" }
+moto-sys = { git = "https://github.com/moturus/motor-os", branch = "main" }
+moto-rt = { git = "https://github.com/moturus/motor-os", branch = "main" }
 
 [profile.release]
 panic = "abort"

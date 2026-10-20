@@ -8,18 +8,17 @@ publish = false
 wasmtime = { path = "../crates/wasmtime", default-features = false, features = ["std", "runtime", "pulley", "component-model-async", "component-model-bytes", "gc", "gc-drc"] }
 wasmtime-wasi = { path = "../crates/wasi", features = ["p1", "p2", "p3"] }
 [target.'cfg(target_os = "motor")'.dependencies]
-moto-rt = { path = "../../motor-os/src/sys/lib/moto-rt" }
-moto-sys = { path = "../../motor-os/src/sys/lib/moto-sys" }
-moto-io = { path = "../../motor-os/src/sys/lib/moto-io" }
-moto-async = { path = "../../motor-os/src/sys/lib/moto-async" }
-moto-ipc = { path = "../../motor-os/src/sys/lib/moto-ipc" }
-moto-sys-io = { path = "../../motor-os/src/sys/lib/moto-sys-io" }
+moto-rt = { git = "https://github.com/moturus/motor-os", branch = "main" }
+moto-sys = { git = "https://github.com/moturus/motor-os", branch = "main" }
+moto-io = { git = "https://github.com/moturus/motor-os", branch = "main" }
+moto-async = { git = "https://github.com/moturus/motor-os", branch = "main" }
+moto-ipc = { git = "https://github.com/moturus/motor-os", branch = "main" }
+moto-sys-io = { git = "https://github.com/moturus/motor-os", branch = "main" }
 [patch.crates-io]
-target-lexicon = { path = "../../target-lexicon" }
-tokio = { path = "../../tokio/tokio" }
-mio = { path = "../../mio" }
-ring = { git = "https://github.com/moturus/ring", rev = "b1dad2579de791d0c31ad33300187e584ba6c268" }
-moto-rt = { path = "../../motor-os/src/sys/lib/moto-rt" }
+target-lexicon = { git = "https://github.com/moturus/target-lexicon", branch = "motor-0.13.5" }
+tokio = { git = "https://github.com/moturus/tokio", branch = "motor-1.51.1" }
+mio = { git = "https://github.com/moturus/mio", branch = "motor-1.2.0" }
+moto-rt = { git = "https://github.com/moturus/motor-os", branch = "main" }
 [profile.release]
 panic = "abort"
 lto = "fat"
