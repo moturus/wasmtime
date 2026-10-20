@@ -14,7 +14,7 @@ fn usage() -> u64 {
 }
 
 pub(super) fn check() -> io::Result<()> {
-    let base = format!("/user/tmp/wasm-baseline-fs-{}", std::process::id());
+    let base = format!("/none/tmp/wasm-baseline-fs-{}", std::process::id());
     std::fs::create_dir(&base)?;
     let original = format!("{base}/grant");
     let moved = format!("{base}/moved");
@@ -23,15 +23,18 @@ pub(super) fn check() -> io::Result<()> {
     let granted = fs::open_ambient_dir(Path::new(&original), ())?;
     let held = fs::open(&granted, Path::new("leaf"), OpenOptions::new().read(true))?;
     assert_eq!(held.metadata()?.len(), 8);
+    // A directory handle names its path: once the grant moves away and a
+    // replacement appears under that name, the handle reaches the replacement.
+    // An open file keeps the object it was opened on.
     std::fs::rename(&original, &moved)?;
     std::fs::create_dir(&original)?;
     std::fs::write(format!("{original}/leaf"), b"replacement")?;
     assert_eq!(
         fs::stat(&granted, Path::new("leaf"), FollowSymlinks::Yes)?.len(),
-        8
+        11
     );
     assert_eq!(held.metadata()?.len(), 8);
-    assert_eq!(std::fs::metadata(format!("{original}/leaf"))?.len(), 11);
+    assert_eq!(std::fs::metadata(format!("{moved}/leaf"))?.len(), 8);
     assert_eq!(
         fs::open(
             &granted,
@@ -143,29 +146,29 @@ pub(super) fn check() -> io::Result<()> {
     fs::remove_file(&granted, Path::new("nested/kept"))?;
     fs::remove_dir(&granted, Path::new("nested"))?;
     println!(
-        "PASS FS parent-ID confinement, rename/replacement, rights, create, resize, rename, enumerate, flush, remove"
+        "PASS FS path confinement, replacement under the grant path, rights, create, resize, rename, enumerate, flush, remove"
     );
-    // Warm the cached native client and allocator before testing repeated calls.
+    // Warm the allocator before testing repeated calls.
     for _ in 0..32 {
         assert_eq!(
             fs::stat(&granted, Path::new("leaf"), FollowSymlinks::Yes)?.len(),
-            8
+            11
         );
     }
     let before = usage();
     for _ in 0..1024 {
         assert_eq!(
             fs::stat(&granted, Path::new("leaf"), FollowSymlinks::Yes)?.len(),
-            8
+            11
         );
-        assert_eq!(usage(), before, "filesystem client/lookup leaked");
+        assert_eq!(usage(), before, "repeated stat leaked");
     }
-    println!("PASS FS client reuse cycles=1024 charge={before}");
+    println!("PASS FS repeated stat cycles=1024 charge={before}");
     std::thread::spawn(move || -> io::Result<()> {
         assert_eq!(held.metadata()?.len(), 8);
         assert_eq!(
             fs::stat(&granted, Path::new("leaf"), FollowSymlinks::Yes)?.len(),
-            8
+            11
         );
         Ok(())
     })
@@ -173,6 +176,6 @@ pub(super) fn check() -> io::Result<()> {
     .unwrap()?;
     std::fs::remove_dir_all(&base)?;
     assert!(!Path::new(&base).exists());
-    println!("PASS FS worker-thread ownership and fixture cleanup");
+    println!("PASS FS worker-thread use and fixture cleanup");
     Ok(())
 }

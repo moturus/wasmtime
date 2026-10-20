@@ -797,12 +797,10 @@ target-lexicon = { git = "https://github.com/moturus/target-lexicon", branch = "
 mio = { git = "https://github.com/moturus/mio", branch = "motor-1.2.0" }
 tokio = { git = "https://github.com/moturus/tokio", branch = "motor-1.51.1" }
 ring = { git = "https://github.com/moturus/ring", rev = "b1dad2579de791d0c31ad33300187e584ba6c268" }
-# Tokio and Mio ask crates.io for moto-rt; Motor OS crates come from one revision.
-moto-rt = { git = "https://github.com/moturus/motor-os", branch = "main" }
 
 [target.'cfg(target_os = "motor")'.dependencies]
-moto-sys = { git = "https://github.com/moturus/motor-os", branch = "main" }
-moto-rt = { git = "https://github.com/moturus/motor-os", branch = "main" }
+moto-sys = "0.3.2"
+moto-rt = "0.17"
 
 [profile.release]
 panic = "abort"

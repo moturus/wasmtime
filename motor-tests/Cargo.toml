@@ -11,11 +11,10 @@ wasmtime = { path = "../crates/wasmtime", default-features = false, features = [
 object = { version = "0.39.1", default-features = false, features = ["read", "elf", "std"] }
 
 [target.'cfg(target_os = "motor")'.dependencies]
-moto-sys = { git = "https://github.com/moturus/motor-os", branch = "main" }
+moto-sys = "0.3.2"
 
 [patch.crates-io]
 target-lexicon = { git = "https://github.com/moturus/target-lexicon", branch = "motor-0.13.5" }
-moto-rt = { git = "https://github.com/moturus/motor-os", branch = "main" }
 
 [profile.release]
 panic = "abort"

@@ -40,8 +40,6 @@ pub mod filesystem;
 #[cfg(target_os = "motor")]
 pub mod motor_fs;
 #[cfg(target_os = "motor")]
-mod motor_lookup;
-#[cfg(target_os = "motor")]
 mod motor_sockets;
 #[cfg(feature = "p1")]
 pub mod p0;

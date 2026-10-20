@@ -38,15 +38,15 @@ pub(crate) fn stat_at(d: &PlatformFile, p: &Path, s: FollowSymlinks) -> io::Resu
     Ok(DescriptorStat::new(&fs::stat(d, p, s)?, 1))
 }
 pub(crate) fn metadata_hash(f: &PlatformFile) -> io::Result<MetadataHashValue> {
-    Ok(MetadataHashValue::new(f.id))
+    Ok(MetadataHashValue::new(f.identity()?))
 }
 pub(crate) fn metadata_hash_at(
     d: &PlatformFile,
     p: &Path,
-    _: FollowSymlinks,
+    s: FollowSymlinks,
 ) -> io::Result<MetadataHashValue> {
-    metadata_hash(&fs::open(d, p, OpenOptions::new().read(true))?)
+    Ok(MetadataHashValue::new(fs::stat(d, p, s)?.identity()))
 }
 pub(crate) fn is_same_file(a: &PlatformFile, b: &PlatformFile) -> io::Result<bool> {
-    Ok(a.id == b.id)
+    Ok(a.identity()? == b.identity()?)
 }

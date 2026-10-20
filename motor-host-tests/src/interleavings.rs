@@ -1,6 +1,6 @@
-//! Confinement cases beyond rename of the preopen: NULs, renamed and deleted
+//! Path semantics beyond rename of the preopen: NULs, renamed and deleted
 //! directory handles, replacement after stat, unsupported operations and the
-//! cost of parent-ID lookups against native path lookups.
+//! cost of the adapter against native path lookups.
 use std::{io, path::Path, time::Instant};
 use wasmtime_wasi::motor_fs::fs::{self, DirOptions, FollowSymlinks, OpenOptions};
 
@@ -11,34 +11,39 @@ fn read() -> OpenOptions {
 }
 
 pub(super) fn check() -> io::Result<()> {
-    let base = format!("/user/tmp/wasm-interleavings-{}", std::process::id());
+    let base = format!("/none/tmp/wasm-interleavings-{}", std::process::id());
     std::fs::create_dir(&base)?;
     let granted = fs::open_ambient_dir(Path::new(&base), ())?;
 
     let nul = fs::open(&granted, Path::new("bad\0name"), &read());
     assert_eq!(nul.err().unwrap().kind(), io::ErrorKind::InvalidInput);
 
-    // A subdirectory handle follows its directory across a rename.
+    // A subdirectory handle names its path, so it does not follow a rename.
     fs::create_dir(&granted, Path::new("sub"), &DirOptions::new())?;
     std::fs::write(format!("{base}/sub/x"), b"in sub")?;
     let sub = fs::open(&granted, Path::new("sub"), &read())?;
-    std::fs::rename(format!("{base}/sub"), format!("{base}/sub2"))?;
     assert_eq!(
         fs::stat(&sub, Path::new("x"), FollowSymlinks::Yes)?.len(),
         6
     );
+    std::fs::rename(format!("{base}/sub"), format!("{base}/sub2"))?;
+    let renamed = fs::stat(&sub, Path::new("x"), FollowSymlinks::Yes)
+        .err()
+        .expect("handle followed the renamed directory");
+    assert_eq!(renamed.kind(), io::ErrorKind::NotFound);
 
-    // A handle to a deleted directory never reaches its same-named replacement.
+    // A handle to a deleted directory reaches a same-named replacement.
     fs::create_dir(&granted, Path::new("gone"), &DirOptions::new())?;
     let gone = fs::open(&granted, Path::new("gone"), &read())?;
     std::fs::remove_dir(format!("{base}/gone"))?;
     std::fs::create_dir(format!("{base}/gone"))?;
     std::fs::write(format!("{base}/gone/new"), b"replacement")?;
-    let stale = fs::stat(&gone, Path::new("new"), FollowSymlinks::Yes)
-        .err()
-        .expect("stale handle reached the replacement");
+    assert_eq!(
+        fs::stat(&gone, Path::new("new"), FollowSymlinks::Yes)?.len(),
+        11
+    );
 
-    // Every operation looks the name up again: no path-to-ID cache survives a
+    // Every operation resolves the path again: nothing survives a
     // replacement between a stat and the next use.
     std::fs::write(format!("{base}/flip"), b"file")?;
     assert!(!fs::stat(&granted, Path::new("flip"), FollowSymlinks::Yes)?.is_dir());
@@ -55,10 +60,10 @@ pub(super) fn check() -> io::Result<()> {
         assert_eq!(result.unwrap_err().kind(), io::ErrorKind::Unsupported);
     }
     println!(
-        "PASS FS NUL rejection, renamed subdirectory handle, stale handle ({stale}), stat/replace, unsupported link operations"
+        "PASS FS NUL rejection, renamed directory handle ({renamed}), replaced directory handle, stat/replace, unsupported link operations"
     );
 
-    // IPC cost of a three-level parent-ID walk against native path stat.
+    // Cost of a three-level adapter stat against native path stat.
     std::fs::create_dir_all(format!("{base}/a/b"))?;
     std::fs::write(format!("{base}/a/b/c"), b"deep")?;
     let native = format!("{base}/a/b/c");
@@ -70,7 +75,7 @@ pub(super) fn check() -> io::Result<()> {
             4
         );
     }
-    let walk = started.elapsed() / rounds;
+    let adapter = started.elapsed() / rounds;
     let started = Instant::now();
     for _ in 0..rounds {
         assert_eq!(std::fs::metadata(&native)?.len(), 4);
@@ -78,8 +83,8 @@ pub(super) fn check() -> io::Result<()> {
     let path = started.elapsed() / rounds;
     std::fs::remove_dir_all(&base)?;
     println!(
-        "PASS FS lookup cost walk_us={} native_stat_us={}",
-        walk.as_micros(),
+        "PASS FS lookup cost adapter_us={} native_stat_us={}",
+        adapter.as_micros(),
         path.as_micros()
     );
     Ok(())

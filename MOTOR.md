@@ -7,20 +7,19 @@ adapters use the existing native filesystem, networking, clock and entropy
 APIs; this branch requires no core OS or toolchain changes.
 
 This is branch `motor-48.0.1` of `moturus/wasmtime`, based on upstream
-`7bac2c2775808aaec5d4aa5627a5e447b51102cf`. Its Motor dependencies are git
-dependencies pinned by the checked-in lockfiles, never sibling checkouts:
+`7bac2c2775808aaec5d4aa5627a5e447b51102cf`. Its Motor dependencies are the
+published `moto-rt` and `moto-sys` crates and git dependencies on the Motor
+forks below, all pinned by the checked-in lockfiles, never sibling checkouts:
 
 | Dependency | Repository and branch | Upstream base |
 | --- | --- | --- |
 | target-lexicon | `moturus/target-lexicon` `motor-0.13.5` | 6647bd7d681d3e218c88568d8285dfd8cae2dd97 |
 | tokio | `moturus/tokio` `motor-1.51.1` | 98df02d7a4a638b3bc76a01f41966dc83c275103 |
 | mio | `moturus/mio` `motor-1.2.0` | ce39a6be2cc739165daaeb10cce609b9b77242ac |
-| moto-rt, moto-sys, moto-io, moto-async, moto-ipc, moto-sys-io | `moturus/motor-os` `main` | (Motor OS itself) |
+| moto-rt, moto-sys | crates.io (`moto-rt = "0.17"`, `moto-sys = "0.3.2"`) | (Motor OS itself) |
 
-All Motor OS crates come from one `moturus/motor-os` revision; the lockfiles
-may pin one ahead of `main` (`cargo update -p moto-rt --precise <rev>`), and
-`cargo update -p moto-rt` moves them to the branch head together. `cargo update
--p tokio` (or `mio`, `target-lexicon`) takes a fork's new head. The published
+`cargo update -p moto-rt` (or `moto-sys`) takes a newer published release, and
+`cargo update -p tokio` (or `mio`, `target-lexicon`) takes a fork's new head. The published
 Ring Motor commit is pinned in Cargo; upstream getrandom uses the custom entropy
 callback in `wasmtime-wasi`. Neither needs a new fork. Wizer's
 runtime-independent instrumentation lives in `crates/wizer` for Javy/Wasmi.
@@ -40,7 +39,12 @@ Run `./motor-test.sh` (same `RUSTUP_TOOLCHAIN`) for compiler-policy and ELF
 publication regressions.
 The Rust crates own their fixtures and have no runtime downloads. Native
 filesystem checks live in `motor-host-tests`; build for Motor and run
-`MOTOR_OS_CAPS=0x200 motor-wasi-tests`. Each linear memory owns one sparse lazy
+`MOTOR_OS_CAPS=0x200 motor-wasi-tests`. WASI directory descriptors are absolute
+paths below their preopen: each operation composes the guest's relative path
+with the descriptor's path and uses the native path API, so a renamed directory
+is not followed and a replacement under the same name is reached, while open
+files keep the object they were opened on. A guest cannot leave a preopen:
+absolute paths, NULs and `..` above it are refused before any I/O. Each linear memory owns one sparse lazy
 reservation of its declared maximum, or 4 GiB without one, so only touched pages
 use RAM; as on Linux there is no process-wide total or memory count. A 64-bit
 memory cannot grow past 4 GiB: `memory.grow` returns -1 instead of moving it,

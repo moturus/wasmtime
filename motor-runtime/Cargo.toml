@@ -31,7 +31,6 @@ target-lexicon = { git = "https://github.com/moturus/target-lexicon", branch = "
 tokio = { git = "https://github.com/moturus/tokio", branch = "motor-1.51.1" }
 mio = { git = "https://github.com/moturus/mio", branch = "motor-1.2.0" }
 ring = { git = "https://github.com/moturus/ring", rev = "b1dad2579de791d0c31ad33300187e584ba6c268" }
-moto-rt = { git = "https://github.com/moturus/motor-os", branch = "main" }
 [profile.release]
 panic = "abort"
 lto = "fat"
@@ -39,8 +38,8 @@ codegen-units = 1
 strip = true
 
 [target.'cfg(target_os = "motor")'.dependencies]
-moto-sys = { git = "https://github.com/moturus/motor-os", branch = "main" }
-moto-rt = { git = "https://github.com/moturus/motor-os", branch = "main" }
+moto-sys = "0.3.2"
+moto-rt = "0.17"
 
 [[bin]]
 name = "compile"
