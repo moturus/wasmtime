@@ -39,11 +39,11 @@ memory cannot grow past 4 GiB: `memory.grow` returns -1 instead of moving it,
 as upstream does with `-O memory-may-move=n`. Qualify the reservations
 by precompiling `motor-runtime/fixtures/memory-*.wat` for `pulley64` with the
 `compile` tool and running `MOTOR_OS_CAPS=0 memory-check memory-grow.cwasm
-memory-too-large.cwasm` on Motor. Guarded fiber stacks use eight slots of up to 2 MiB,
-each above a 4 KiB read-only guard, starting 16 MiB into Motor's custom
-userspace region, above the process-data page that rt.vdso maps at its start;
-nothing else maps there. A 2 MiB stack is charged 4,202,496 bytes because the
-self-shared mapping has a read-write alias. Qualify with `stack-check normal`
+memory-too-large.cwasm` on Motor. Fiber stacks are Motor guarded heap maps
+(`F_LAZY | F_GUARDED`): each sits between two pages that are never mapped, a
+page is committed on first touch, and there is no limit on their number or
+size, as with Wasmtime's own stacks on Linux. A pool keeps two of them per
+engine for reuse, except for zeroed requests. Qualify with `stack-check normal`
 and `stack-check overflow` on `motor-runtime/fixtures/stack-yield.wat`; the
 overflow must kill only that process. `motor-runtime/fixtures/lifecycle.wat`
 covers `run` stdio, exit status, traps, `-W timeout` (compile with

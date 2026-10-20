@@ -1,8 +1,11 @@
 #[cfg(target_os = "motor")]
 fn main() -> wasmtime::Result<()> {
-    use std::sync::Arc;
-    use wasmtime::{Config, Engine, Linker, Module, StackCreator, Store, ensure};
-    use wasmtime_cli::motor_stack::{StackPool, contains};
+    use std::{
+        ops::Range,
+        sync::{Arc, Mutex},
+    };
+    use wasmtime::{Config, Engine, Linker, Module, StackCreator, StackMemory, Store, ensure};
+    use wasmtime_cli::motor_stack::StackPool;
     wasmtime_cli::motor::check_authority()?;
     let args: Vec<_> = std::env::args().collect();
     let mode = args.get(1).map(String::as_str).unwrap_or("");
@@ -47,35 +50,72 @@ fn main() -> wasmtime::Result<()> {
         );
         return Ok(());
     }
-    fn charge() -> u64 {
+    fn metric(id: u32) -> u64 {
         let mut metrics = [moto_sys::stats::MetricEntry::default(); 128];
         let (n, total) =
             moto_sys::SysRay::query_stats(moto_sys::current_pid(), &mut metrics).unwrap();
         assert_eq!(n, total);
-        metrics[..n].iter().find(|e| e.metric == 0).unwrap().value
+        metrics[..n].iter().find(|e| e.metric == id).unwrap().value
+    }
+    // This process's reserved bytes, and the RAM backing its mappings.
+    fn charge() -> u64 {
+        metric(0)
+    }
+    fn resident() -> u64 {
+        metric(79)
+    }
+    const PAGE: usize = 4096;
+    /// # Safety
+    /// `address` must be inside a leased stack.
+    unsafe fn touch(address: usize) {
+        unsafe { (address as *mut u8).write_volatile(123) }
     }
     let pool = Arc::new(StackPool::default());
-    ensure!(
-        pool.new_stack((2 << 20) + 1, true).is_err(),
-        "unbounded stack size"
-    );
-    // The read-write alias of each mapping is charged as well.
+    // The reservation is the stack and its two guards; nothing is committed
+    // until touched, and its lowest page is usable.
     let before = charge();
-    let largest = pool.new_stack(2 << 20, true)?;
-    println!("stack charge bytes={} size=2097152", charge() - before);
-    drop(largest);
-    let stack = pool.new_stack(64 << 10, true)?;
-    let address = stack.range().start;
-    unsafe {
-        (address as *mut u8).write_volatile(123);
-    }
-    drop(stack);
-    let stack = pool.new_stack(64 << 10, true)?;
+    let largest = pool.new_stack(2 << 20, false)?;
+    let range = largest.range();
+    let guard = largest.guard_range();
     ensure!(
-        stack.range().start == address && unsafe { (address as *const u8).read_volatile() } == 0,
-        "pooled zeroing"
+        charge() - before == (2 << 20) + 2 * PAGE as u64,
+        "stack reservation"
     );
+    ensure!(
+        range.len() == 2 << 20
+            && guard.end as usize == range.start
+            && guard.end as usize - guard.start as usize == PAGE,
+        "stack shape"
+    );
+    let before = resident();
+    unsafe {
+        touch(range.start);
+        touch(range.end - 1);
+    }
+    let committed = resident() - before;
+    ensure!(
+        committed == 2 * PAGE as u64,
+        "two touches commit {committed} bytes"
+    );
+    println!("stack committed bytes={committed} size=2097152 touched=2");
+    drop(largest);
+    // A cached stack keeps its bytes; a zeroed request gets a fresh one.
+    let stack = pool.new_stack(64 << 10, false)?;
+    let address = stack.range().start;
+    unsafe { touch(address) };
     drop(stack);
+    let stack = pool.new_stack(64 << 10, false)?;
+    ensure!(
+        stack.range().start == address && unsafe { (address as *const u8).read_volatile() } == 123,
+        "pooled reuse"
+    );
+    let zeroed = pool.new_stack(64 << 10, true)?;
+    let fresh = zeroed.range().start;
+    ensure!(
+        fresh != address && unsafe { (fresh as *const u8).read_volatile() } == 0,
+        "zeroed stack"
+    );
+    drop((stack, zeroed));
     let before = charge();
     for _ in 0..2048 {
         let pool = StackPool::default();
@@ -83,33 +123,65 @@ fn main() -> wasmtime::Result<()> {
         drop(pool);
         ensure!(charge() == before, "stack teardown leaked");
     }
-    // A leased ninth stack must fail; returning/dropping pools releases all slots.
+    // As many stacks as serve's default request limit, each with its top
+    // page touched, commit a page each plus the leases' own heap. Afterwards
+    // only that heap may stay reserved, which is less than one stack.
     drop(pool);
     let pool = Arc::new(StackPool::default());
+    let reservation = (2 << 20) + 2 * PAGE as u64;
+    let before = (charge(), resident());
     let mut leased = Vec::new();
-    for _ in 0..8 {
-        leased.push(pool.new_stack(64 << 10, true)?);
+    for _ in 0..1000 {
+        let stack = pool.new_stack(2 << 20, false)?;
+        unsafe { touch(stack.range().end - 1) };
+        leased.push(stack);
     }
+    let reserved = charge() - before.0;
+    let committed = resident() - before.1;
+    let pages = 1000 * PAGE as u64;
     ensure!(
-        pool.new_stack(64 << 10, true).is_err(),
-        "unbounded stack count"
+        reserved >= 1000 * reservation && (pages..pages + (1 << 20)).contains(&committed),
+        "1000 leased stacks reserve {reserved} and commit {committed} bytes"
     );
     drop(leased);
     drop(pool);
-    let pool = Arc::new(StackPool::default());
+    let left = charge().saturating_sub(before.0);
+    ensure!(
+        left < reservation,
+        "leased stacks left {left} bytes reserved"
+    );
+    println!("leased stacks=1000 committed={committed} left={left}");
+    // Wasmtime's stacks, recorded so the callback can check where it runs.
+    struct Recorder(StackPool, Mutex<Vec<Range<usize>>>);
+    unsafe impl StackCreator for Recorder {
+        fn new_stack(&self, size: usize, zeroed: bool) -> wasmtime::Result<Box<dyn StackMemory>> {
+            let stack = self.0.new_stack(size, zeroed)?;
+            self.1.lock().unwrap().push(stack.range());
+            Ok(stack)
+        }
+    }
+    let recorder = Arc::new(Recorder(StackPool::default(), Mutex::new(Vec::new())));
+    let contains = {
+        let recorder = recorder.clone();
+        move |address: usize| {
+            let ranges = recorder.1.lock().unwrap();
+            ranges.iter().any(|range| range.contains(&address))
+        }
+    };
     let mut config = Config::new();
     config
         .target("pulley64")?
         .motor_runtime()
-        .with_host_stack(pool);
+        .with_host_stack(recorder);
     let engine = Engine::new(&config)?;
     let module = unsafe { Module::deserialize_file(&engine, &args[2])? };
     let mut linker = Linker::new(&engine);
     let overflow = mode == "overflow";
     linker.func_wrap_async("host", "yield", move |_caller, (): ()| {
+        let contains = contains.clone();
         Box::new(async move {
             #[inline(never)]
-            fn check_frame() -> wasmtime::Result<()> {
+            fn check_frame(contains: &dyn Fn(usize) -> bool) -> wasmtime::Result<()> {
                 let mut frame = [7_u8; 1024];
                 unsafe {
                     frame.as_mut_ptr().write_volatile(7);
@@ -121,7 +193,7 @@ fn main() -> wasmtime::Result<()> {
                 std::hint::black_box(frame);
                 Ok(())
             }
-            check_frame()?;
+            check_frame(&contains)?;
             if overflow {
                 #[inline(never)]
                 fn recurse() {
@@ -135,7 +207,7 @@ fn main() -> wasmtime::Result<()> {
                 recurse();
             }
             tokio::task::yield_now().await;
-            check_frame()?;
+            check_frame(&contains)?;
             Ok(())
         })
     })?;
@@ -160,7 +232,7 @@ fn main() -> wasmtime::Result<()> {
         }
         Ok::<_, wasmtime::Error>(())
     })?;
-    println!("guarded fibers PASS teardown=2048 yield=2048 limit=8 zeroing=true");
+    println!("guarded fibers PASS teardown=2048 yield=2048 leased=1000 lazy=true");
     Ok(())
 }
 #[cfg(not(target_os = "motor"))]
