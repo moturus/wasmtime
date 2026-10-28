@@ -1,4 +1,4 @@
-use test_programs::sockets::{attempt_random_port, supports_ipv6};
+use test_programs::sockets::{MOTOR, attempt_random_port, is_unspecified, supports_ipv6};
 use test_programs::wasi::sockets::network::{
     ErrorCode, IpAddress, IpAddressFamily, IpSocketAddress, Network,
 };
@@ -9,6 +9,14 @@ fn test_tcp_bind_ephemeral_port(net: &Network, ip: IpAddress) {
     let bind_addr = IpSocketAddress::new(ip, 0);
 
     let sock = TcpSocket::new(ip.family()).unwrap();
+    if MOTOR && is_unspecified(ip) {
+        // Motor cannot bind a wildcard address to an ephemeral port.
+        assert_eq!(
+            sock.blocking_bind(net, bind_addr),
+            Err(ErrorCode::NotSupported)
+        );
+        return;
+    }
     sock.blocking_bind(net, bind_addr).unwrap();
 
     let bound_addr = sock.local_address().unwrap();
@@ -35,7 +43,12 @@ fn test_tcp_bind_addrinuse(net: &Network, ip: IpAddress) {
     let bind_addr = IpSocketAddress::new(ip, 0);
 
     let sock1 = TcpSocket::new(ip.family()).unwrap();
-    sock1.blocking_bind(net, bind_addr).unwrap();
+    if MOTOR && is_unspecified(ip) {
+        // Motor binds a wildcard address only to a specific port.
+        attempt_random_port(ip, |addr| sock1.blocking_bind(net, addr)).unwrap();
+    } else {
+        sock1.blocking_bind(net, bind_addr).unwrap();
+    }
     sock1.blocking_listen().unwrap();
 
     let bound_addr = sock1.local_address().unwrap();

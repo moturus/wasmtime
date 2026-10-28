@@ -1,4 +1,4 @@
-use test_programs::sockets::supports_ipv6;
+use test_programs::sockets::{keep_alive_set_result, supports_ipv6};
 use test_programs::wasi::sockets::network::{
     ErrorCode, IpAddress, IpAddressFamily, IpSocketAddress, Network,
 };
@@ -38,7 +38,10 @@ fn test_tcp_unbound_state_invariants(family: IpAddressFamily) {
 
     assert!(matches!(sock.set_listen_backlog_size(32), Ok(_)));
     assert!(matches!(sock.keep_alive_enabled(), Ok(_)));
-    assert!(matches!(sock.set_keep_alive_enabled(false), Ok(_)));
+    assert_eq!(
+        sock.set_keep_alive_enabled(false),
+        keep_alive_set_result(false)
+    );
     assert!(matches!(sock.keep_alive_idle_time(), Ok(_)));
     assert!(matches!(sock.set_keep_alive_idle_time(1), Ok(_)));
     assert!(matches!(sock.keep_alive_interval(), Ok(_)));
@@ -89,7 +92,10 @@ fn test_tcp_bound_state_invariants(net: &Network, family: IpAddressFamily) {
 
     assert!(matches!(sock.set_listen_backlog_size(32), Ok(_)));
     assert!(matches!(sock.keep_alive_enabled(), Ok(_)));
-    assert!(matches!(sock.set_keep_alive_enabled(false), Ok(_)));
+    assert_eq!(
+        sock.set_keep_alive_enabled(false),
+        keep_alive_set_result(false)
+    );
     assert!(matches!(sock.keep_alive_idle_time(), Ok(_)));
     assert!(matches!(sock.set_keep_alive_idle_time(1), Ok(_)));
     assert!(matches!(sock.keep_alive_interval(), Ok(_)));
@@ -147,7 +153,10 @@ fn test_tcp_listening_state_invariants(net: &Network, family: IpAddressFamily) {
         Ok(_) | Err(ErrorCode::NotSupported)
     ));
     assert!(matches!(sock.keep_alive_enabled(), Ok(_)));
-    assert!(matches!(sock.set_keep_alive_enabled(false), Ok(_)));
+    assert_eq!(
+        sock.set_keep_alive_enabled(false),
+        keep_alive_set_result(false)
+    );
     assert!(matches!(sock.keep_alive_idle_time(), Ok(_)));
     assert!(matches!(sock.set_keep_alive_idle_time(1), Ok(_)));
     assert!(matches!(sock.keep_alive_interval(), Ok(_)));
@@ -198,7 +207,10 @@ fn test_tcp_connected_state_invariants(net: &Network, family: IpAddressFamily) {
     assert_eq!(sock.address_family(), family);
 
     assert!(matches!(sock.keep_alive_enabled(), Ok(_)));
-    assert!(matches!(sock.set_keep_alive_enabled(false), Ok(_)));
+    assert_eq!(
+        sock.set_keep_alive_enabled(false),
+        keep_alive_set_result(false)
+    );
     assert!(matches!(sock.keep_alive_idle_time(), Ok(_)));
     assert!(matches!(sock.set_keep_alive_idle_time(1), Ok(_)));
     assert!(matches!(sock.keep_alive_interval(), Ok(_)));
