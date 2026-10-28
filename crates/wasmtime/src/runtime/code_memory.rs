@@ -16,12 +16,17 @@ use wasmtime_environ::StaticModuleIndex;
 use wasmtime_environ::{CompiledTrap, lookup_trap_code, obj};
 use wasmtime_unwinder::ExceptionTable;
 
+#[cfg(target_os = "motor")]
+mod motor;
+
 /// Management of executable memory within a `MmapVec`
 ///
 /// This type consumes ownership of a region of memory and will manage the
 /// executable permissions of the contained JIT code as necessary.
 pub struct CodeMemory {
     mmap: MmapVec,
+    #[cfg(target_os = "motor")]
+    motor_code: Option<motor::CodeMapping>,
     #[cfg(has_host_compiler_backend)]
     unwind_registration: Option<crate::runtime::vm::UnwindRegistration>,
     #[cfg(feature = "debug-builtins")]
@@ -256,6 +261,8 @@ impl CodeMemory {
 
         Ok(Self {
             mmap,
+            #[cfg(target_os = "motor")]
+            motor_code: None,
             #[cfg(has_host_compiler_backend)]
             unwind_registration: None,
             #[cfg(feature = "debug-builtins")]
@@ -294,6 +301,10 @@ impl CodeMemory {
     /// represents.
     #[inline]
     pub fn text(&self) -> &[u8] {
+        #[cfg(target_os = "motor")]
+        if let Some(code) = &self.motor_code {
+            return code.as_slice();
+        }
         &self.mmap[self.text.clone()]
     }
 
@@ -494,10 +505,17 @@ impl CodeMemory {
             // memory is executable and also handle icache
             // coherence.
             mem.publish_executable(text.as_ptr(), text.len())?;
-            Ok(true)
-        } else {
-            Ok(false)
+            return Ok(true);
         }
+        #[cfg(target_os = "motor")]
+        {
+            // The artifact has no text relocations. Only its machine code
+            // needs an executable mapping; metadata stays in the image.
+            self.motor_code = Some(motor::CodeMapping::new(&self.mmap[self.text.clone()])?);
+            return Ok(true);
+        }
+        #[cfg(not(target_os = "motor"))]
+        Ok(false)
     }
 
     /// "Unpublish" code memory (transition it from executable to read/writable).
@@ -515,6 +533,11 @@ impl CodeMemory {
     /// If this fails, then the memory remains executable.
     pub fn unpublish(&mut self) -> Result<()> {
         assert!(self.published);
+        #[cfg(target_os = "motor")]
+        ensure!(
+            self.motor_code.is_none(),
+            "Motor's code mappings cannot change permissions for in-place code editing"
+        );
         self.published = false;
 
         if self.text().is_empty() {

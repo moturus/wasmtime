@@ -310,6 +310,8 @@ impl Metadata<'_> {
             winch_callable,
             signals_based_traps,
             memory_init_cow,
+            // A compilation strategy; both initializer forms remain loadable.
+            memory_init_static: _,
             inlining,
             inlining_small_callee_size,
             inlining_sum_size_threshold,

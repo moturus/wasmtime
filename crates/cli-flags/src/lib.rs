@@ -923,6 +923,16 @@ impl CommonOptions {
     pub fn config(&mut self, pooling_allocator_default: Option<bool>) -> Result<Config> {
         self.configure()?;
         let mut config = Config::new();
+        #[cfg(target_os = "motor")]
+        if self
+            .target
+            .as_deref()
+            .is_none_or(|target| target.ends_with("-motor") || target.starts_with("pulley"))
+        {
+            // Native host selection and CPU detection remain Wasmtime's
+            // defaults. Motor backing also needs these settings for Pulley.
+            config.motor_runtime();
+        }
 
         match_feature! {
             ["cranelift" : self.codegen.compiler]

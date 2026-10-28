@@ -189,13 +189,24 @@ impl MmapVec {
     /// The file is mapped into memory with a "private mapping" meaning that
     /// changes are not persisted back to the file itself and are only visible
     /// within this process.
-    #[cfg(feature = "std")]
+    #[cfg(all(feature = "std", has_virtual_memory))]
     pub fn from_file(file: File) -> Result<MmapVec> {
         let file = Arc::new(file);
         let mmap = Mmap::from_file(Arc::clone(&file))
             .with_context(move || format!("failed to create mmap for file {file:?}"))?;
         let len = mmap.len();
         Ok(MmapVec::new_mmap(mmap, len))
+    }
+
+    /// Reads a file directly into allocator-backed storage without a staging copy.
+    #[cfg(all(feature = "std", not(has_virtual_memory)))]
+    pub fn from_file(mut file: File) -> Result<MmapVec> {
+        use std::io::Read;
+        let len = usize::try_from(file.metadata()?.len())?;
+        let mut result = Self::with_capacity_and_alignment(len, 1)?;
+        // SAFETY: fresh allocator storage has not been published or shared.
+        file.read_exact(unsafe { result.as_mut_slice() })?;
+        Ok(result)
     }
 
     /// Makes the specified `range` within this `mmap` to be read/execute.

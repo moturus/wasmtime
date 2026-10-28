@@ -859,6 +859,9 @@ impl std::hash::Hash for HashedEngineCompileEnv<'_> {
         self.0.tunables().hash(hasher);
         self.0.features().hash(hasher);
         config.wmemcheck.hash(hasher);
+        if self.0.tunables().memory_init_static {
+            config.resolved_dense_image_size().hash(hasher);
+        }
 
         // Catch accidental bugs of reusing across crate versions.
         config.module_version.hash(hasher);
