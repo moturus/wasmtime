@@ -85,26 +85,33 @@ fn test_tcp_shutdown_should_not_lose_data(net: &Network, family: IpAddressFamily
     setup(net, family, |server, client| {
         // Minimize the local send buffer:
         client.socket.set_send_buffer_size(1024).unwrap();
-        let small_buffer_size = client.socket.send_buffer_size().unwrap();
+        // Some platforms cannot shrink their native buffers below one WASI
+        // write permit. Fill the connection without reading at the peer until
+        // a write remains pending; bound the work using actual buffer sizes.
+        let capacity = client.socket.send_buffer_size().unwrap()
+            + server.socket.receive_buffer_size().unwrap();
+        let limit = 100 * capacity;
+        let mut submitted = 0;
+        loop {
+            let permit = client.output.check_write().unwrap();
+            if permit == 0 {
+                break;
+            }
+            assert!(submitted < limit, "connection never applied backpressure");
+            let size = permit.min(limit - submitted);
+            client.output.write(&vec![0; size as usize]).unwrap();
+            submitted += size;
+        }
+        assert!(submitted > 0);
 
-        // Create a significantly bigger buffer, so that we can be pretty sure the `write` won't finish immediately:
-        let big_buffer_size = client
-            .output
-            .check_write()
-            .unwrap()
-            .min(100 * small_buffer_size);
-        assert!(big_buffer_size > small_buffer_size);
-        let outgoing_data = vec![0; big_buffer_size as usize];
-
-        // Submit the oversized buffer and immediately initiate the shutdown:
-        client.output.write(&outgoing_data).unwrap();
+        // Shutdown must preserve the last pending write as well.
         client.socket.shutdown(ShutdownType::Send).unwrap();
 
         // The peer should receive _all_ data:
         let incoming_data = server.input.blocking_read_to_end().unwrap();
         assert_eq!(
-            outgoing_data.len(),
-            incoming_data.len(),
+            submitted,
+            incoming_data.len() as u64,
             "Received data should match the sent data"
         );
     });

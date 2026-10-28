@@ -1,4 +1,4 @@
-use test_programs::sockets::supports_ipv6;
+use test_programs::sockets::{MOTOR, supports_ipv6};
 use test_programs::wasi::sockets::network::{
     IpAddress, IpAddressFamily, IpSocketAddress, Ipv4SocketAddress, Ipv6SocketAddress, Network,
 };
@@ -6,6 +6,13 @@ use test_programs::wasi::sockets::udp::{OutgoingDatagram, UdpSocket};
 
 fn test_udp_sample_application(family: IpAddressFamily, bind_address: IpSocketAddress) {
     let unspecified_addr = IpSocketAddress::new(IpAddress::new_unspecified(family), 0);
+    // A Motor wildcard bind selects one non-loopback address, which cannot
+    // reach the loopback server, so Motor clients bind the loopback address.
+    let client_bind_addr = if MOTOR {
+        bind_address
+    } else {
+        unspecified_addr
+    };
 
     let first_message = &[];
     let second_message = b"Hello, world!";
@@ -19,9 +26,12 @@ fn test_udp_sample_application(family: IpAddressFamily, bind_address: IpSocketAd
     let (server_incoming, _) = server.stream(None).unwrap();
     let addr = server.local_address().unwrap();
 
+    // Motor discards datagrams still queued when their sender closes, so its
+    // senders stay open until the server has received.
+    let mut senders = Vec::new();
     let client_addr = {
         let client = UdpSocket::new(family).unwrap();
-        client.blocking_bind(&net, unspecified_addr).unwrap();
+        client.blocking_bind(&net, client_bind_addr).unwrap();
         let (_, client_outgoing) = client.stream(Some(addr)).unwrap();
 
         let datagrams = [
@@ -36,7 +46,11 @@ fn test_udp_sample_application(family: IpAddressFamily, bind_address: IpSocketAd
         ];
         client_outgoing.blocking_send(&datagrams).unwrap();
 
-        client.local_address().unwrap()
+        let client_addr = client.local_address().unwrap();
+        if MOTOR {
+            senders.push((client_outgoing, client));
+        }
+        client_addr
     };
 
     {
@@ -54,7 +68,7 @@ fn test_udp_sample_application(family: IpAddressFamily, bind_address: IpSocketAd
     // Another client
     {
         let client = UdpSocket::new(family).unwrap();
-        client.blocking_bind(&net, unspecified_addr).unwrap();
+        client.blocking_bind(&net, client_bind_addr).unwrap();
         let (_, client_outgoing) = client.stream(None).unwrap();
 
         let datagrams = [OutgoingDatagram {
@@ -62,6 +76,9 @@ fn test_udp_sample_application(family: IpAddressFamily, bind_address: IpSocketAd
             remote_address: Some(addr),
         }];
         client_outgoing.blocking_send(&datagrams).unwrap();
+        if MOTOR {
+            senders.push((client_outgoing, client));
+        }
     }
 
     {
@@ -70,6 +87,18 @@ fn test_udp_sample_application(family: IpAddressFamily, bind_address: IpSocketAd
         assert_eq!(datagrams.len(), 1);
 
         assert_eq!(datagrams[0].data, third_message);
+    }
+
+    if MOTOR {
+        // An immediate close after sending succeeds; delivery is not promised.
+        let client = UdpSocket::new(family).unwrap();
+        client.blocking_bind(&net, client_bind_addr).unwrap();
+        let (_, client_outgoing) = client.stream(Some(addr)).unwrap();
+        let datagrams = [OutgoingDatagram {
+            data: third_message.to_vec(),
+            remote_address: None,
+        }];
+        client_outgoing.blocking_send(&datagrams).unwrap();
     }
 }
 

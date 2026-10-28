@@ -1,9 +1,18 @@
 use test_programs::sockets::attempt_random_port;
-use test_programs::sockets::supports_ipv6;
+use test_programs::sockets::{MOTOR, is_unspecified, supports_ipv6};
 use test_programs::wasi::sockets::network::{
     ErrorCode, IpAddress, IpAddressFamily, IpSocketAddress, Network,
 };
 use test_programs::wasi::sockets::udp::UdpSocket;
+
+/// Motor's wildcard bind selects one local address.
+fn assert_bound_ip(requested: IpAddress, bound: IpAddress) {
+    if MOTOR && is_unspecified(requested) {
+        assert!(!is_unspecified(bound));
+    } else {
+        assert_eq!(requested, bound);
+    }
+}
 
 /// Bind a socket and let the system determine a port.
 fn test_udp_bind_ephemeral_port(net: &Network, ip: IpAddress) {
@@ -14,7 +23,7 @@ fn test_udp_bind_ephemeral_port(net: &Network, ip: IpAddress) {
 
     let bound_addr = sock.local_address().unwrap();
 
-    assert_eq!(bind_addr.ip(), bound_addr.ip());
+    assert_bound_ip(ip, bound_addr.ip());
     assert_ne!(bind_addr.port(), bound_addr.port());
 }
 
@@ -27,7 +36,7 @@ fn test_udp_bind_specific_port(net: &Network, ip: IpAddress) {
 
     let bound_addr = sock.local_address().unwrap();
 
-    assert_eq!(bind_addr.ip(), bound_addr.ip());
+    assert_bound_ip(bind_addr.ip(), bound_addr.ip());
     assert_eq!(bind_addr.port(), bound_addr.port());
 }
 

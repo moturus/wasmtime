@@ -1,4 +1,4 @@
-use test_programs::sockets::supports_ipv6;
+use test_programs::sockets::{supports_ipv6, udp_buffer_ok};
 use test_programs::wasi::sockets::network::{
     ErrorCode, IpAddress, IpAddressFamily, IpSocketAddress, Network,
 };
@@ -21,10 +21,10 @@ fn test_udp_unbound_state_invariants(family: IpAddressFamily) {
 
     assert!(matches!(sock.unicast_hop_limit(), Ok(_)));
     assert!(matches!(sock.set_unicast_hop_limit(255), Ok(_)));
-    assert!(matches!(sock.receive_buffer_size(), Ok(_)));
-    assert!(matches!(sock.set_receive_buffer_size(16000), Ok(_)));
-    assert!(matches!(sock.send_buffer_size(), Ok(_)));
-    assert!(matches!(sock.set_send_buffer_size(16000), Ok(_)));
+    assert!(udp_buffer_ok(sock.receive_buffer_size()));
+    assert!(udp_buffer_ok(sock.set_receive_buffer_size(16000)));
+    assert!(udp_buffer_ok(sock.send_buffer_size()));
+    assert!(udp_buffer_ok(sock.set_send_buffer_size(16000)));
 }
 
 fn test_udp_bound_state_invariants(net: &Network, family: IpAddressFamily) {
@@ -48,10 +48,10 @@ fn test_udp_bound_state_invariants(net: &Network, family: IpAddressFamily) {
 
     assert!(matches!(sock.unicast_hop_limit(), Ok(_)));
     assert!(matches!(sock.set_unicast_hop_limit(255), Ok(_)));
-    assert!(matches!(sock.receive_buffer_size(), Ok(_)));
-    assert!(matches!(sock.set_receive_buffer_size(16000), Ok(_)));
-    assert!(matches!(sock.send_buffer_size(), Ok(_)));
-    assert!(matches!(sock.set_send_buffer_size(16000), Ok(_)));
+    assert!(udp_buffer_ok(sock.receive_buffer_size()));
+    assert!(udp_buffer_ok(sock.set_receive_buffer_size(16000)));
+    assert!(udp_buffer_ok(sock.send_buffer_size()));
+    assert!(udp_buffer_ok(sock.set_send_buffer_size(16000)));
 }
 
 fn test_udp_connected_state_invariants(net: &Network, family: IpAddressFamily) {
@@ -74,10 +74,10 @@ fn test_udp_connected_state_invariants(net: &Network, family: IpAddressFamily) {
 
     assert!(matches!(sock.unicast_hop_limit(), Ok(_)));
     assert!(matches!(sock.set_unicast_hop_limit(255), Ok(_)));
-    assert!(matches!(sock.receive_buffer_size(), Ok(_)));
-    assert!(matches!(sock.set_receive_buffer_size(16000), Ok(_)));
-    assert!(matches!(sock.send_buffer_size(), Ok(_)));
-    assert!(matches!(sock.set_send_buffer_size(16000), Ok(_)));
+    assert!(udp_buffer_ok(sock.receive_buffer_size()));
+    assert!(udp_buffer_ok(sock.set_receive_buffer_size(16000)));
+    assert!(udp_buffer_ok(sock.send_buffer_size()));
+    assert!(udp_buffer_ok(sock.set_send_buffer_size(16000)));
 }
 
 fn main() {
