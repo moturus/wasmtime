@@ -5,6 +5,7 @@ use http_body_util::{BodyExt as _, Full};
 use hyper::server::conn::http1;
 use pin_project_lite::pin_project;
 use std::convert::Infallible;
+#[cfg(feature = "debug")]
 use std::ffi::OsString;
 use std::net::SocketAddr;
 
@@ -21,11 +22,11 @@ use std::{
 use tokio::io::{self, AsyncRead, AsyncWrite};
 use tokio::net::{TcpListener, TcpStream};
 use tokio::sync::Semaphore;
+#[cfg(feature = "profiling")]
+use wasmtime::UpdateDeadline;
 use wasmtime::component::{Component, Linker, TaskGroupId};
 use wasmtime::error::Context as _;
-use wasmtime::{
-    AsContextMut as _, Engine, Result, Store, StoreContextMut, StoreLimits, UpdateDeadline, bail,
-};
+use wasmtime::{AsContextMut as _, Engine, Result, Store, StoreContextMut, StoreLimits, bail};
 use wasmtime_cli_flags::opt::WasmtimeOptionValue;
 use wasmtime_wasi::p2::{StreamError, StreamResult};
 use wasmtime_wasi::{WasiCtx, WasiCtxBuilder, WasiCtxView, WasiView};
@@ -404,6 +405,7 @@ impl ServeCommand {
         if let Some(max) = self.run.common.wasi.max_resources {
             table.set_max_capacity(max);
         }
+        #[allow(unused_mut, reason = "optional WASI contexts are initialized below")]
         let mut host = Host {
             table,
             ctx: builder.build(),
@@ -581,6 +583,8 @@ impl ServeCommand {
             None => {}
         }
 
+        #[cfg(target_os = "motor")]
+        crate::motor_host::configure(&mut config)?;
         let engine = Engine::new(&config)?;
         let mut linker = Linker::new(&engine);
 
@@ -625,7 +629,12 @@ impl ServeCommand {
         tokio::task::spawn({
             let shutdown = shutdown.clone();
             async move {
-                tokio::signal::ctrl_c().await.unwrap();
+                if let Err(error) = tokio::signal::ctrl_c().await {
+                    // Motor's ctrl-c belongs to a foreground terminal group.
+                    // A noninteractive server can use --shutdown-addr instead.
+                    eprintln!("ctrl-c listener unavailable: {error}");
+                    return;
+                }
                 shutdown.request_shutdown();
             }
         });
@@ -793,7 +802,12 @@ impl ServeCommand {
         if let Some(wait_for_remaining) = shutdown.close() {
             eprintln!("Waiting for child tasks to exit, ctrl-c again to quit sooner...");
             tokio::select! {
-                _ = tokio::signal::ctrl_c() => {}
+                _ = async {
+                    if tokio::signal::ctrl_c().await.is_err() {
+                        // No terminal group is not a second Ctrl-C.
+                        std::future::pending::<()>().await;
+                    }
+                } => {}
                 _ = wait_for_remaining => {}
             }
         }
@@ -1171,6 +1185,9 @@ fn setup_epoch_handler(
             bail!("support for profiling disabled at compile time!");
         }
     }
+
+    #[cfg(not(feature = "profiling"))]
+    let _ = component;
 
     // Profiling disabled but there's a global request timeout
     if cmd.run.common.wasm.timeout.is_some() || cmd.run.common.debug.debugger.is_some() {
