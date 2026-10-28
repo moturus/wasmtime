@@ -31,6 +31,10 @@ futures = { workspace = true }
 url = { workspace = true }
 rand = { workspace = true, features = ['std_rng', 'thread_rng'] }
 
+[target.'cfg(target_os = "motor")'.dependencies]
+moto-rt = "0.17"
+getrandom = { version = "=0.2.17", features = ["custom"] }
+
 [dev-dependencies]
 tokio = { workspace = true, features = ["time", "sync", "io-std", "io-util", "rt", "rt-multi-thread", "net", "macros", "fs"] }
 test-log = { workspace = true }

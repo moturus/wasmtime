@@ -43,6 +43,8 @@ tokio-rustls = { workspace = true, optional = true }
 rustls = { workspace = true, optional = true }
 webpki-roots = { workspace = true, optional = true }
 pin-project-lite = { workspace = true }
+
+[target.'cfg(not(target_os = "motor"))'.dependencies]
 rustix = { workspace = true }
 
 [dev-dependencies]

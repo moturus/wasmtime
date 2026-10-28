@@ -490,9 +490,16 @@ pub trait WasiHttpHooks: Send {
 
 // EAFNOSUPPORT has no corresponding stable ErrorKind.
 #[cfg(any(feature = "p2", feature = "p3"))]
+#[cfg(not(target_os = "motor"))]
 fn is_address_family_unsupported(err: &std::io::Error) -> bool {
     use rustix::io::Errno;
     Errno::from_io_error(err) == Some(Errno::AFNOSUPPORT)
+}
+
+// Native Motor errors have no separate address-family errno.
+#[cfg(all(target_os = "motor", any(feature = "p2", feature = "p3")))]
+fn is_address_family_unsupported(_: &std::io::Error) -> bool {
+    false
 }
 
 /// Returns a value suitable for the `WasiHttpCtxView::hooks` field which has
