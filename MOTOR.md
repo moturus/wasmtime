@@ -77,5 +77,8 @@ native compile/run/serve workflow, TypeScript, precompiled loading, explicit
 Pulley, WASI filesystem/networking, p3, lifecycle and limits. Its established
 gates rebuild all guests and precompiled artifacts from this revision. The
 used core fixtures remain under `motor-runtime/fixtures/`; that directory is
-no longer a Cargo workspace. See Motor OS's `docs/plans/wasmtime-fork-audit.md`
-and `docs/plans/javy-wasmtime.md` for integration status and qualification.
+no longer a Cargo workspace. See Motor OS's [WebAssembly guide] and
+[build and test instructions] for the installed tools and their checks.
+
+[WebAssembly guide]: https://github.com/moturus/motor-os/blob/dev/docs/wasm.md
+[build and test instructions]: https://github.com/moturus/motor-os/blob/dev/docs/build.md
