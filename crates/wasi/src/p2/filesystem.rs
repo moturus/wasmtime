@@ -84,7 +84,11 @@ impl FileInputStream {
         }
     }
 
-    fn blocking_read(file: &std::fs::File, offset: u64, size: usize) -> ReadState {
+    fn blocking_read(
+        file: &crate::filesystem::PlatformFile,
+        offset: u64,
+        size: usize,
+    ) -> ReadState {
         let mut buf = BytesMut::zeroed(size.min(crate::MAX_READ_SIZE_ALLOC));
         loop {
             match sys::read_at_cursor_unspecified(file, &mut buf, offset) {
@@ -238,7 +242,7 @@ impl FileOutputStream {
     }
 
     fn blocking_write(
-        file: &std::fs::File,
+        file: &crate::filesystem::PlatformFile,
         mut buf: Bytes,
         mode: FileOutputMode,
     ) -> io::Result<usize> {

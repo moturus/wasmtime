@@ -255,7 +255,7 @@ struct ReadDirStream {
 
 impl ReadDirStream {
     fn new(
-        dir: Arc<std::fs::File>,
+        dir: Arc<crate::filesystem::PlatformFile>,
         result: oneshot::Sender<Result<(), ErrorCode>>,
     ) -> ReadDirStream {
         let (tx, rx) = mpsc::channel(1);
@@ -393,7 +393,7 @@ impl WriteStreamConsumer {
 }
 
 impl WriteLocation {
-    fn write(&self, file: &std::fs::File, bytes: &[u8]) -> io::Result<usize> {
+    fn write(&self, file: &crate::filesystem::PlatformFile, bytes: &[u8]) -> io::Result<usize> {
         match *self {
             WriteLocation::End => sys::append_cursor_unspecified(file, bytes),
             WriteLocation::Offset(at) => sys::write_at_cursor_unspecified(file, bytes, at),

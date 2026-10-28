@@ -686,6 +686,11 @@ impl From<std::io::Error> for ErrorCode {
     }
 }
 
+#[cfg(target_os = "motor")]
+fn from_raw_os_error(_: Option<i32>) -> Option<ErrorCode> {
+    None
+}
+
 impl<'a> From<&'a std::io::Error> for ErrorCode {
     fn from(err: &'a std::io::Error) -> ErrorCode {
         match from_raw_os_error(err.raw_os_error()) {
@@ -697,6 +702,18 @@ impl<'a> From<&'a std::io::Error> for ErrorCode {
                     std::io::ErrorKind::PermissionDenied => ErrorCode::NotPermitted,
                     std::io::ErrorKind::AlreadyExists => ErrorCode::Exist,
                     std::io::ErrorKind::InvalidInput => ErrorCode::Invalid,
+                    std::io::ErrorKind::NotADirectory => ErrorCode::NotDirectory,
+                    std::io::ErrorKind::IsADirectory => ErrorCode::IsDirectory,
+                    std::io::ErrorKind::DirectoryNotEmpty => ErrorCode::NotEmpty,
+                    std::io::ErrorKind::Unsupported => ErrorCode::Unsupported,
+                    std::io::ErrorKind::OutOfMemory => ErrorCode::InsufficientMemory,
+                    std::io::ErrorKind::StorageFull => ErrorCode::InsufficientSpace,
+                    std::io::ErrorKind::FileTooLarge => ErrorCode::FileTooLarge,
+                    std::io::ErrorKind::BrokenPipe => ErrorCode::Pipe,
+                    std::io::ErrorKind::Interrupted => ErrorCode::Interrupted,
+                    std::io::ErrorKind::InvalidFilename => ErrorCode::NameTooLong,
+                    std::io::ErrorKind::InvalidData => ErrorCode::IllegalByteSequence,
+                    std::io::ErrorKind::NotSeekable => ErrorCode::InvalidSeek,
                     _ => ErrorCode::Io,
                 }
             }
