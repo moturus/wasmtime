@@ -1,3 +1,5 @@
+#[cfg(target_os = "motor")]
+use crate::motor_sockets as rustix;
 use crate::runtime::with_ambient_tokio_runtime;
 use crate::sockets::{
     ErrorCode, MaybeReady, SocketAddrCheck, SocketAddrUse, SocketAddressFamily, WasiSocketsCtx,
@@ -695,9 +697,9 @@ impl Drop for TcpReceiveStream {
     }
 }
 
-#[cfg(not(target_os = "macos"))]
+#[cfg(not(any(target_os = "macos", target_os = "motor")))]
 pub use inherits_option::*;
-#[cfg(not(target_os = "macos"))]
+#[cfg(not(any(target_os = "macos", target_os = "motor")))]
 mod inherits_option {
     use crate::sockets::SocketAddressFamily;
     use tokio::net::TcpStream;
@@ -718,11 +720,15 @@ mod inherits_option {
     }
 }
 
-#[cfg(target_os = "macos")]
+// Motor connections keep their native buffer sizes instead of the listener's.
+#[cfg(any(target_os = "macos", target_os = "motor"))]
 pub use does_not_inherit_options::*;
-#[cfg(target_os = "macos")]
+#[cfg(any(target_os = "macos", target_os = "motor"))]
 mod does_not_inherit_options {
+    #[cfg(target_os = "motor")]
+    use crate::motor_sockets::net::sockopt;
     use crate::sockets::SocketAddressFamily;
+    #[cfg(target_os = "macos")]
     use rustix::net::sockopt;
     use std::sync::Arc;
     use std::sync::atomic::{AtomicU8, AtomicU64, AtomicUsize, Ordering::Relaxed};
@@ -833,6 +839,10 @@ fn bind(socket: &tokio::net::TcpSocket, local_address: SocketAddr) -> Result<(),
             // been handled by our own validation.. This error mapping is here
             // just in case there is an edge case we didn't catch.
             Some(Errno::AFNOSUPPORT) => ErrorCode::InvalidArgument,
+            // Motor reports a non-local address as InvalidArgument; our own
+            // validation has already rejected the other invalid addresses.
+            #[cfg(target_os = "motor")]
+            Some(Errno::INVAL) => ErrorCode::AddressNotBindable,
             // See: https://learn.microsoft.com/en-us/windows/win32/api/winsock2/nf-winsock2-bind#:~:text=WSAENOBUFS
             // Windows returns WSAENOBUFS when the ephemeral ports have been exhausted.
             #[cfg(windows)]

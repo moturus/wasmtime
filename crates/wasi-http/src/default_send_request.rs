@@ -69,6 +69,9 @@ pub async fn default_send_request(
     };
     let stream = if use_tls {
         // derived from https://github.com/rustls/rustls/blob/main/examples/src/bin/simpleclient.rs
+        #[cfg(target_os = "motor")]
+        let root_cert_store = motor_root_cert_store()?;
+        #[cfg(not(target_os = "motor"))]
         let root_cert_store = rustls::RootCertStore {
             roots: webpki_roots::TLS_SERVER_ROOTS.into(),
         };
@@ -203,6 +206,31 @@ pub async fn default_send_request(
         }
         Ok(())
     }))
+}
+
+/// The Motor OS system trust store, which images take from their build host,
+/// instead of roots compiled into the runtime. It is read once per process; a
+/// failed read is retried by the next request.
+#[cfg(target_os = "motor")]
+fn motor_root_cert_store() -> Result<std::sync::Arc<rustls::RootCertStore>, Error> {
+    use rustls::pki_types::{CertificateDer, pem::PemObject};
+    use std::sync::{Arc, OnceLock};
+
+    const CA_BUNDLE: &str = "/system/cfg/ssl/ca-certificates.crt";
+    static ROOTS: OnceLock<Arc<rustls::RootCertStore>> = OnceLock::new();
+
+    if let Some(roots) = ROOTS.get() {
+        return Ok(roots.clone());
+    }
+    let error = |reason: String| Error::InternalError(Some(format!("{CA_BUNDLE}: {reason}")));
+    let certificates = CertificateDer::pem_file_iter(CA_BUNDLE)
+        .and_then(|certificates| certificates.collect::<Result<Vec<_>, _>>())
+        .map_err(|e| error(e.to_string()))?;
+    let mut roots = rustls::RootCertStore::empty();
+    if roots.add_parsable_certificates(certificates).0 == 0 {
+        return Err(error("no usable certificates".to_owned()));
+    }
+    Ok(ROOTS.get_or_init(|| Arc::new(roots)).clone())
 }
 
 /// Resolve the rustls [`ServerName`] used for TLS certificate verification from

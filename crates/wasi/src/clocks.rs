@@ -93,6 +93,10 @@ impl WallClock {
 
 impl HostWallClock for WallClock {
     fn resolution(&self) -> Duration {
+        #[cfg(target_os = "motor")]
+        {
+            motor_resolution()
+        }
         #[cfg(unix)]
         {
             let res = rustix::time::clock_getres(rustix::time::ClockId::Realtime);
@@ -141,6 +145,10 @@ impl MonotonicClock {
 
 impl HostMonotonicClock for MonotonicClock {
     fn resolution(&self) -> u64 {
+        #[cfg(target_os = "motor")]
+        {
+            motor_resolution().as_nanos() as u64
+        }
         #[cfg(unix)]
         {
             let res = rustix::time::clock_getres(rustix::time::ClockId::Monotonic);
@@ -406,4 +414,12 @@ pub trait WasiClocksNamedView: Send + 'static {
     /// [`ResourceTable`] for all imports. This is not a guest-visible
     /// abstraction and just helps the host allocate and manage state.
     fn clocks(&mut self, id: NamedId) -> WasiClocksCtxView<'_>;
+}
+
+#[cfg(target_os = "motor")]
+fn motor_resolution() -> Duration {
+    let frequency = moto_rt::RtVdsoVtable::get()
+        .time_ticks_in_sec
+        .load(std::sync::atomic::Ordering::Relaxed);
+    Duration::from_nanos(1_000_000_000u64.div_ceil(frequency))
 }

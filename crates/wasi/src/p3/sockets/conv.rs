@@ -1,3 +1,5 @@
+#[cfg(target_os = "motor")]
+use crate::motor_sockets as rustix;
 use crate::p3::bindings::sockets::types;
 use crate::p3::sockets::SocketError;
 use crate::sockets::{

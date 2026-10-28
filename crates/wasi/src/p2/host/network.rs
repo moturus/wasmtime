@@ -1,3 +1,5 @@
+#[cfg(target_os = "motor")]
+use crate::motor_sockets as rustix;
 use crate::p2::SocketError;
 use crate::p2::bindings::sockets::network::{
     self, ErrorCode, IpAddress, IpSocketAddress, Ipv4SocketAddress, Ipv6SocketAddress,

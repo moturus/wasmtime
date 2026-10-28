@@ -35,6 +35,8 @@ pub mod clocks;
 mod ctx;
 mod error;
 pub mod filesystem;
+#[cfg(target_os = "motor")]
+mod motor_sockets;
 #[cfg(feature = "p1")]
 pub mod p0;
 #[cfg(feature = "p1")]
@@ -62,3 +64,13 @@ pub use async_trait::async_trait;
 pub use rand::Rng;
 #[doc(no_inline)]
 pub use wasmtime::component::{ResourceTable, ResourceTableError};
+
+// Supply native entropy to Ring and rand through getrandom's supported hook.
+#[cfg(target_os = "motor")]
+fn motor_getrandom(dest: &mut [u8]) -> Result<(), getrandom::Error> {
+    moto_rt::fill_random_bytes(dest);
+    Ok(())
+}
+
+#[cfg(target_os = "motor")]
+getrandom::register_custom_getrandom!(motor_getrandom);
