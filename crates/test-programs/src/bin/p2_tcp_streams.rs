@@ -141,7 +141,13 @@ fn test_tcp_nonblocking_write_loop(net: &Network, family: IpAddressFamily) {
 
         const COUNT: usize = 300;
         for i in 0..COUNT {
-            let permit = client.output.check_write().unwrap();
+            let mut permit = client.output.check_write().unwrap();
+            if test_programs::sockets::MOTOR && permit == 0 {
+                // Motor's shared IPC pages can fill even for small writes.
+                // Wait for native readiness; all 300 bytes must still arrive.
+                client.output.subscribe().block();
+                permit = client.output.check_write().unwrap();
+            }
             assert!(
                 permit > 0,
                 "check-write reported 0 bytes after {i} nonblocking writes"
