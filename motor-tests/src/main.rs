@@ -76,12 +76,10 @@ fn main() -> Result<()> {
     #[cfg(target_os = "motor")]
     {
         let caps = moto_sys::ProcessStaticPage::get().capabilities;
-        assert_eq!(
-            moto_sys::caps::ProcessRole::from_caps(caps),
-            moto_sys::caps::ProcessRole::None
+        println!(
+            "role={:?} caps={caps:#x}",
+            moto_sys::caps::ProcessRole::from_caps(caps)
         );
-        assert_eq!(caps & !moto_sys::caps::CAP_FS_WRITE, 0);
-        println!("role=None caps={caps:#x}");
     }
     let dense = dense_segments();
     let mut reassigned = Config::new();

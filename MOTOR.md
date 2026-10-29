@@ -57,8 +57,10 @@ Growth does not copy the reservation or commit untouched pages. Fiber stacks
 use guarded lazy mappings; two released stacks may be cached per engine.
 Upstream store limits and p3 defaults apply, including explicit CLI overrides.
 
-Both CLIs require role None and accept capabilities `0`, `0x100`, `0x200` or
-`0x300`. WASI grants further restrict filesystem/network access. Native
+Both CLIs run as None, Interactive or System and accept the caller's ordinary
+capabilities. None-role masks `0`, `0x100`, `0x200` or `0x300` are sufficient
+for read-only, network, filesystem-write or combined access respectively.
+WASI grants further restrict filesystem/network access. Native
 filesystem primitives confine paths beneath each directory grant; directory
 handles name paths while open files retain their native object. Socket
 adapters preserve native bind/listen ordering and report unsupported native
